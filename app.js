@@ -26,7 +26,7 @@ const ROW_H = 38;                 // altezza riga della rotella
 const DURATA_ANNULLA_MS = 4000;  // per quanto resta il popup "Annulla" dopo un inserimento
 
 /* ===================== Dati ===================== */
-const emptyDb = () => ({ v: 1, payments: [], fuel: {}, lastBackup: null, methods: null, oldMethods: {} });
+const emptyDb = () => ({ v: 1, payments: [], fuel: {}, shifts: {}, lastBackup: null, methods: null, oldMethods: {} });
 function load() {
   let d = null;
   try {
@@ -36,6 +36,7 @@ function load() {
   d = d || emptyDb();
   if (!Array.isArray(d.methods) || !d.methods.length) d.methods = METODI_INIZIALI.map(m => ({ ...m }));
   if (!d.oldMethods || typeof d.oldMethods !== 'object') d.oldMethods = {};
+  if (!d.shifts || typeof d.shifts !== 'object') d.shifts = {};
   return d;
 }
 function save() {
@@ -126,15 +127,28 @@ function byMethod(ps) {
   });
 }
 
-// Media oraria: inizio = primo incasso - 20 min; fine = adesso (giornata in corso) o ultimo incasso.
+// Orari del turno.
+// Inizio = "Inizia turno" se premuto, altrimenti primo incasso - 20 min.
+// Fine   = "Fine turno" se premuto, altrimenti ultimo incasso.
+const shiftOf = day => db.shifts[day] || {};
 function hourlyOf(day) {
   const ps = paymentsOf(day);
   if (!ps.length) return null;
-  const start = ps[0].ts - MINUTI_PRIMA_CORSA * 60000;
-  const live = day === todayKey();
-  const end = live ? Math.max(Date.now(), ps[ps.length - 1].ts) : ps[ps.length - 1].ts;
+  const sh = shiftOf(day);
+  const first = ps[0].ts, last = ps[ps.length - 1].ts;
+  // il turno comprende sempre tutte le corse (es. "Inizia" premuto in ritardo)
+  const start = sh.start ? Math.min(sh.start, first) : first - MINUTI_PRIMA_CORSA * 60000;
+  const end = sh.end ? Math.max(sh.end, last) : last;
   const hours = Math.max((end - start) / 3600000, 1 / 60);
-  return { start, end, hours, live, perHour: sum(ps) / hours };
+  return { start, end, hours, startManual: !!sh.start, endManual: !!sh.end, perHour: sum(ps) / hours };
+}
+// Turno iniziato e non ancora finito (anche se nel frattempo sono passate le 4:00)
+function openShiftDay() {
+  let best = null;
+  Object.entries(db.shifts).forEach(([day, s]) => {
+    if (s.start && !s.end && Date.now() - s.start < 20 * 3600000 && (!best || s.start > db.shifts[best].start)) best = day;
+  });
+  return best;
 }
 
 /* ===================== Stato UI ===================== */
@@ -247,6 +261,7 @@ function renderTop() {
   $('fuelVal').textContent = fuel ? fmtEuro(fuel) : '—';
   $('fuelBtn').classList.toggle('empty', !fuel);
   $('totVal').textContent = fmtEuro(sum(paymentsOf(viewDay)));
+  renderShiftBtn();
 }
 
 function renderEntry() {
@@ -300,7 +315,7 @@ $('fuelBtn').addEventListener('click', () => openKeypad({
 }));
 
 /* ----- Conferma + annulla ----- */
-let toastTimer = null, lastAdded = null;
+let toastTimer = null, toastUndo = null;
 $('confirmBtn').addEventListener('click', () => {
   if (!(entry.cents > 0 && entry.method)) return;
   if (viewDay !== todayKey()) {        // giorno passato: chiedi l'orario
@@ -310,13 +325,17 @@ $('confirmBtn').addEventListener('click', () => {
   const now = Date.now();
   const p = { id: uid(), cents: entry.cents, method: entry.method, ts: now, day: workDayOf(now) };
   db.payments.push(p); save();
-  lastAdded = p;
   entry = { cents: 0, method: null };
-  showToast(`${fmtEuro(p.cents)} · ${p.method}`);
+  showToast(`${fmtEuro(p.cents)} · ${p.method}`, () => {
+    db.payments = db.payments.filter(x => x.id !== p.id); save();
+    entry = { cents: p.cents, method: p.method };   // torna l'importo e il metodo per correggere
+  });
   renderAll(p.id);
 });
-function showToast(text) {
+// onUndo = cosa fare se si preme "Annulla"
+function showToast(text, onUndo) {
   const t = $('toast');
+  toastUndo = onUndo || null;
   $('toastText').textContent = text;
   t.hidden = false;
   $('confirmBtn').style.visibility = 'hidden';
@@ -338,14 +357,109 @@ function drawToastRing(t) {
 function hideToast() {
   $('toast').hidden = true;
   $('confirmBtn').style.visibility = '';
-  lastAdded = null;
+  toastUndo = null;
 }
 $('undoBtn').addEventListener('click', () => {
-  if (!lastAdded) return hideToast();
-  const p = lastAdded;
-  db.payments = db.payments.filter(x => x.id !== p.id); save();
-  entry = { cents: p.cents, method: p.method };   // torna l'importo e il metodo per correggere
+  const undo = toastUndo;
   hideToast();
+  if (undo) { undo(); renderAll(); }
+});
+
+/* ----- Turno: inizio e fine ----- */
+// Cosa fa il pulsantino in alto nel giorno che si sta guardando
+function shiftBtnState() {
+  const open = openShiftDay();
+  const today = todayKey();
+  if (open && (viewDay === today || viewDay === open)) return { mode: 'running', day: open };
+  const sh = shiftOf(viewDay);
+  if (viewDay === today && !sh.start) return { mode: 'idle', day: today };
+  return { mode: 'done', day: viewDay };
+}
+const playSvg = '<svg viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z"/></svg>';
+const clockSvg = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>';
+function renderShiftBtn() {
+  const b = $('shiftBtn'), st = shiftBtnState();
+  b.className = 'shift-btn ' + st.mode;
+  if (st.mode === 'running') {
+    b.innerHTML = `<i class="live-dot"></i><span>${fmtTime(db.shifts[st.day].start)}</span>`;
+  } else if (st.mode === 'idle') {
+    b.innerHTML = `${playSvg}<span>Inizia</span>`;
+  } else {
+    const hr = hourlyOf(st.day);
+    const sh = shiftOf(st.day);
+    const h = hr ? hr.hours : (sh.start && sh.end ? (sh.end - sh.start) / 3600000 : null);
+    b.innerHTML = `${clockSvg}<span>${h ? fmtHours(h) : '—'}</span>`;
+  }
+}
+$('shiftBtn').addEventListener('click', () => {
+  const st = shiftBtnState();
+  if (st.mode === 'idle') {
+    const now = Date.now(), day = workDayOf(now);
+    const prev = db.shifts[day];
+    db.shifts[day] = { ...(prev || {}), start: now };
+    delete db.shifts[day].end;
+    save();
+    showToast(`Turno iniziato alle ${fmtTime(now)}`, () => {
+      if (prev) db.shifts[day] = prev; else delete db.shifts[day];
+      save();
+    });
+    renderAll();
+  } else if (st.mode === 'running') {
+    const now = Date.now(), day = st.day;
+    db.shifts[day].end = now;
+    save();
+    showToast(`Turno finito · ${fmtHours((now - db.shifts[day].start) / 3600000)}`, () => {
+      delete db.shifts[day].end;
+      save();
+    });
+    renderAll();
+  } else {
+    openShiftEdit(st.day);
+  }
+});
+
+// Foglio per correggere gli orari del turno (vuoto = calcolo automatico)
+let shiftEditDay = null;
+function openShiftEdit(day) {
+  shiftEditDay = day;
+  const sh = shiftOf(day);
+  $('shiftTitle').textContent = `Turno · ${fmtDate(day)}`;
+  $('shiftStart').value = sh.start ? fmtTime(sh.start) : '';
+  $('shiftEnd').value = sh.end ? fmtTime(sh.end) : '';
+  renderShiftHints();
+  openSheet($('shiftSheet'));
+}
+function renderShiftHints() {
+  const ps = paymentsOf(shiftEditDay);
+  $('shiftStartHint').textContent = $('shiftStart').value ? '' :
+    ps.length ? `Automatico: ${fmtTime(ps[0].ts - MINUTI_PRIMA_CORSA * 60000)} (${MINUTI_PRIMA_CORSA} min prima del primo incasso)` : 'Automatico: 20 min prima del primo incasso';
+  $('shiftEndHint').textContent = $('shiftEnd').value ? '' :
+    ps.length ? `Automatico: ${fmtTime(ps[ps.length - 1].ts)} (ultimo incasso)` : 'Automatico: ultimo incasso';
+}
+$('shiftStart').addEventListener('input', renderShiftHints);
+$('shiftEnd').addEventListener('input', renderShiftHints);
+$('shiftStartClear').addEventListener('click', () => { $('shiftStart').value = ''; renderShiftHints(); });
+$('shiftEndClear').addEventListener('click', () => { $('shiftEnd').value = ''; renderShiftHints(); });
+$('shiftSave').addEventListener('click', () => {
+  const day = shiftEditDay;
+  const s = $('shiftStart').value, e = $('shiftEnd').value;
+  const start = s ? tsFromDayTime(day, s) : null;
+  const end = e ? tsFromDayTime(day, e) : null;
+  const ps = paymentsOf(day);
+  const realStart = start || (ps.length ? ps[0].ts - MINUTI_PRIMA_CORSA * 60000 : null);
+  const realEnd = end || (ps.length ? ps[ps.length - 1].ts : null);
+  if (realStart && realEnd && realEnd <= realStart) {
+    return notify('La fine del turno deve essere dopo l\'inizio.');
+  }
+  if (start || end) {
+    db.shifts[day] = {};
+    if (start) db.shifts[day].start = start;
+    if (end) db.shifts[day].end = end;
+  } else {
+    delete db.shifts[day];
+  }
+  save();
+  closeSheet($('shiftSheet'));
   renderAll();
 });
 
@@ -547,7 +661,11 @@ function renderTotSheet() {
     <div class="kpi"><b>${hr ? fmtEuro(Math.round(hr.perHour)) : '—'}</b><span>media oraria</span></div>
     <div class="kpi"><b>${hr ? fmtHours(hr.hours) : '—'}</b><span>ore</span></div>
   </div>`;
-  if (hr) h += `<div class="kpi-note">Inizio stimato ${fmtTime(hr.start)} (${MINUTI_PRIMA_CORSA} min prima del primo incasso) · ${hr.live ? 'fino ad ora' : 'fino alle ' + fmtTime(hr.end)}</div>`;
+  if (hr) h += `<button class="kpi-note shift-note" id="totShift">
+      Turno ${fmtTime(hr.start)} – ${fmtTime(hr.end)}<br>
+      <small>inizio: ${hr.startManual ? 'premuto "Inizia"' : MINUTI_PRIMA_CORSA + ' min prima del primo incasso'} ·
+      fine: ${hr.endManual ? 'premuto "Fine"' : 'ultimo incasso'}</small>
+      <span class="edit-link">${penSvg} modifica orari</span></button>`;
   h += `<div class="section-label">Per metodo</div>` + methodBlock(ps);
   h += `<div class="section-label">Pagamenti</div>`;
   h += ps.length ? ps.slice().reverse().map(p => {
@@ -563,6 +681,7 @@ $('totSheetBody').addEventListener('click', e => {
   const row = e.target.closest('.prow');
   if (row) return openEdit(row.dataset.id);
   if (e.target.closest('#totAdd')) openEdit(null, { day: viewDay });
+  if (e.target.closest('#totShift')) openShiftEdit(viewDay);
 });
 $('totBtn').addEventListener('click', () => { renderTotSheet(); openSheet($('totSheet')); });
 
@@ -793,7 +912,7 @@ function renderBackupInfo() {
 }
 $('menuBtn').addEventListener('click', () => { renderBackupInfo(); openSheet($('menuSheet')); });
 $('backupBtn').addEventListener('click', async () => {
-  const data = { app: 'AppConti', v: 1, exportedAt: new Date().toISOString(), payments: db.payments, fuel: db.fuel, methods: db.methods, oldMethods: db.oldMethods };
+  const data = { app: 'AppConti', v: 1, exportedAt: new Date().toISOString(), payments: db.payments, fuel: db.fuel, shifts: db.shifts, methods: db.methods, oldMethods: db.oldMethods };
   const ok = await shareFile(`conti-backup-${todayKey()}.json`, JSON.stringify(data), 'application/json');
   if (ok) { db.lastBackup = Date.now(); save(); renderBackupInfo(); }
 });
@@ -811,6 +930,7 @@ $('restoreInput').addEventListener('change', async e => {
     if (!yes) return;
     db.payments = d.payments;
     db.fuel = d.fuel && typeof d.fuel === 'object' ? d.fuel : {};
+    db.shifts = d.shifts && typeof d.shifts === 'object' ? d.shifts : {};
     const validM = Array.isArray(d.methods) && d.methods.length &&
       d.methods.every(m => m && typeof m.nome === 'string' && /^#[0-9a-f]{6}$/i.test(m.colore) && /^#[0-9a-f]{6}$/i.test(m.bordo));
     if (validM) db.methods = d.methods.map(m => ({ nome: m.nome, colore: m.colore, bordo: m.bordo }));

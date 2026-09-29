@@ -30,6 +30,7 @@
       </button>
       <button id="todayBtn" class="today-btn" hidden>Oggi</button>
     </div>
+    <button id="shiftBtn" class="shift-btn" aria-label="Turno"></button>
     <button id="fuelBtn" class="fuel-btn" aria-label="Benzina">
       <svg viewBox="0 0 24 24" class="pump"><path d="M4 21V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v16M3 21h13M7 7h5M15 10h2a2 2 0 0 1 2 2v5a1.5 1.5 0 0 0 3 0V9l-3-3"/></svg>
       <span id="fuelVal">—</span>
@@ -153,6 +154,23 @@
     <button id="exportShare" class="primary-btn">Salva file</button>
   </div>
   <p class="muted small-text">"Copia" in formato CSV usa le tabulazioni: incollando in Excel ogni valore finisce nella sua cella.</p>
+</section>
+
+<!-- Orari del turno -->
+<section id="shiftSheet" class="sheet">
+  <div class="sheet-grip"></div>
+  <div class="sheet-title" id="shiftTitle">Turno</div>
+  <div class="shift-field">
+    <label>Inizio <input id="shiftStart" type="time"></label>
+    <button id="shiftStartClear" class="clear-btn">Automatico</button>
+  </div>
+  <p id="shiftStartHint" class="muted small-text shift-hint"></p>
+  <div class="shift-field">
+    <label>Fine <input id="shiftEnd" type="time"></label>
+    <button id="shiftEndClear" class="clear-btn">Automatico</button>
+  </div>
+  <p id="shiftEndHint" class="muted small-text shift-hint"></p>
+  <button id="shiftSave" class="primary-btn">Salva</button>
 </section>
 
 <!-- Impostazioni metodi -->
