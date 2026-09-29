@@ -23,7 +23,7 @@ const MINUTI_PRIMA_CORSA = 20;    // inizio turno stimato = primo incasso - 20 m
 const STORAGE_KEY = 'appconti:v1';
 const MAX_CENTS = 9999999;        // 99.999,99 €
 const ROW_H = 38;                 // altezza riga della rotella
-const DURATA_ANNULLA_MS = 5000;   // per quanto resta il popup "Annulla" dopo un inserimento
+const DURATA_ANNULLA_MS = 4000;  // per quanto resta il popup "Annulla" dopo un inserimento
 
 /* ===================== Dati ===================== */
 const emptyDb = () => ({ v: 1, payments: [], fuel: {}, lastBackup: null, methods: null, oldMethods: {} });

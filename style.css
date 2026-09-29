@@ -127,7 +127,7 @@ svg { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2
   animation-name: ring; animation-timing-function: linear; animation-fill-mode: forwards;
 }
 @keyframes ring { to { stroke-dashoffset: -100; } }
-.toast button { font-weight: 700; color: #ffd60a; padding: 10px 14px; border-radius: 99px; background: rgba(255,214,10,.12); }
+.toast button { font-weight: 700; color: #ff453a; padding: 10px 14px; border-radius: 99px; background: rgba(255,69,58,.16); }
 @keyframes pop { from { transform: translateY(8px); opacity: 0; } }
 
 .menu-btn { font-size: 24px; color: var(--muted); padding: 6px 4px 6px 0; display: grid; }
