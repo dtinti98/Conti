@@ -41,26 +41,38 @@ svg { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2
 /* Pulsante turno (sotto il menu): verde = inizia, rosso = finisci */
 .tot-row { position: relative; display: flex; justify-content: center; align-items: center; margin-top: 6px; }
 .tot-row .tot-btn { margin-top: 0; }
-.shift-fab {
-  position: absolute; left: 0; top: 50%; width: 40px; height: 40px; margin-top: -20px; border-radius: 50%;
-  display: grid; place-items: center; font-size: 16px; color: #fff;
+/* Interruttore verticale: pomello verde in alto = inizia, scatta giù e diventa rosso = turno in corso */
+.shift-switch {
+  position: absolute; left: 0; top: -2px; width: 38px; height: 70px;
+  border-radius: 999px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.09);
+  transition: opacity .3s, transform .3s;
 }
-.shift-fab svg { fill: currentColor; stroke: none; position: relative; z-index: 1; }
-.shift-fab.go { background: #30d158; color: #002b0c; }
-.shift-fab.stop { background: #ff3b30; animation: breathe 2.4s ease-in-out infinite; }
-.shift-fab::after { /* onda che si allarga al tocco */
-  content: ""; position: absolute; inset: 0; border-radius: 50%; border: 2px solid; opacity: 0; pointer-events: none;
+.shift-switch:active .knob { transform: translateY(0) scale(.92); }
+.shift-switch.on:active .knob { transform: translateY(32px) scale(.92); }
+.knob {
+  position: absolute; left: 2px; top: 2px; width: 32px; height: 32px; border-radius: 50%;
+  display: grid; place-items: center; color: #fff;
+  background: linear-gradient(160deg, #4be27a, #1fa64a);
+  box-shadow: 0 2px 10px rgba(48,209,88,.45), inset 0 1px 0 rgba(255,255,255,.35);
+  transition: transform .45s cubic-bezier(.34,1.45,.5,1), background .35s, box-shadow .35s;
 }
-.shift-fab.go::after { border-color: #30d158; }
-.shift-fab.stop::after { border-color: #ff3b30; }
-.shift-fab.pop { animation: pop-in .45s cubic-bezier(.3,1.6,.5,1) both; }
-.shift-fab.stop.pop { animation: pop-in .45s cubic-bezier(.3,1.6,.5,1) both, breathe 2.4s ease-in-out .45s infinite; }
-.shift-fab.leaving { animation: shrink .4s ease-in both; }
-.shift-fab.leaving::after { animation: ripple .45s ease-out both; }
-@keyframes pop-in { from { transform: scale(0); opacity: 0; } }
-@keyframes shrink { 30% { transform: scale(1.12); } to { transform: scale(0); opacity: 0; } }
-@keyframes ripple { from { transform: scale(1); opacity: .9; } to { transform: scale(2.4); opacity: 0; } }
-@keyframes breathe { 50% { box-shadow: 0 0 0 5px rgba(255,59,48,.18); } }
+.shift-switch.on .knob {
+  transform: translateY(32px);
+  background: linear-gradient(160deg, #ff6a5e, #d9281e);
+  box-shadow: 0 2px 12px rgba(255,59,48,.5), inset 0 1px 0 rgba(255,255,255,.3);
+  animation: breathe 2.4s ease-in-out .5s infinite;
+}
+.knob i { position: absolute; inset: 0; display: grid; place-items: center; transition: opacity .25s, transform .35s; }
+.knob svg { font-size: 17px; fill: #fff; stroke: none; filter: drop-shadow(0 1px 1px rgba(0,0,0,.2)); }
+.knob .k-stop { opacity: 0; transform: rotate(-90deg) scale(.5); }
+.shift-switch.on .k-go { opacity: 0; transform: rotate(90deg) scale(.5); }
+.shift-switch.on .k-stop { opacity: 1; transform: none; }
+.shift-switch.pop { animation: pop-in .4s cubic-bezier(.3,1.5,.5,1) both; }
+.shift-switch.leaving { opacity: 0; transform: scale(.6); pointer-events: none; }
+@keyframes pop-in { from { transform: scale(.4); opacity: 0; } }
+@keyframes breathe {
+  50% { box-shadow: 0 2px 12px rgba(255,59,48,.5), 0 0 0 5px rgba(255,59,48,.16), inset 0 1px 0 rgba(255,255,255,.3); }
+}
 .shift-note { display: block; width: 100%; line-height: 1.5; }
 .shift-note small { font-size: 11px; }
 .shift-note .edit-link { display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; color: #ffd60a; font-weight: 600; }

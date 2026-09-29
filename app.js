@@ -375,33 +375,33 @@ function shiftBtnState() {
   if (viewDay === today && !sh.start) return { mode: 'idle', day: today };
   return { mode: 'done', day: viewDay };
 }
-const playSvg = '<svg viewBox="0 0 24 24"><path d="M8.5 5.8v12.4a.8.8 0 0 0 1.2.7l9.6-6.2a.8.8 0 0 0 0-1.4L9.7 5.1a.8.8 0 0 0-1.2.7z"/></svg>';
-const stopSvg = '<svg viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2.5"/></svg>';
-// Verde (▶) = inizia turno, rosso (■) = finisci turno, nascosto = turno finito o giorno passato
-let shiftShown = null, shiftAnimating = false;
+// Interruttore: pomello verde in alto (▶ inizia), scatta giù rosso (■ finisci), sparisce a turno finito
+let shiftShown, shiftAnimating = false;
 function renderShiftBtn() {
   if (shiftAnimating) return;
   const b = $('shiftBtn'), mode = shiftBtnState().mode;
   const show = mode === 'idle' ? 'go' : mode === 'running' ? 'stop' : null;
   if (show === shiftShown) return;
-  const first = shiftShown === null && !b.dataset.ready;
-  b.dataset.ready = '1';
+  const wasHidden = !shiftShown;
+  const firstRender = shiftShown === undefined;
   shiftShown = show;
-  if (!show) { b.hidden = true; b.className = 'shift-fab'; return; }
+  if (!show) { b.hidden = true; b.className = 'shift-switch'; return; }
   b.hidden = false;
-  b.className = 'shift-fab ' + show + (first ? '' : ' pop');
-  b.innerHTML = show === 'go' ? playSvg : stopSvg;
+  b.classList.remove('leaving');
+  b.classList.toggle('on', show === 'stop');          // la transizione CSS fa scattare il pomello
+  if (wasHidden && !firstRender) { b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); }
   b.setAttribute('aria-label', show === 'go' ? 'Inizia turno' : 'Finisci turno');
 }
 $('shiftBtn').addEventListener('click', () => {
   if (shiftAnimating) return;
   const st = shiftBtnState();
   const b = $('shiftBtn');
-  // animazione: onda + il pulsante si rimpicciolisce, poi compare il nuovo stato
-  shiftAnimating = true;
-  b.classList.remove('pop');
-  b.classList.add('leaving');
-  setTimeout(() => { shiftAnimating = false; b.classList.remove('leaving'); renderShiftBtn(); }, 420);
+  if (st.mode === 'running') {
+    // l'interruttore svanisce, poi viene nascosto
+    shiftAnimating = true;
+    b.classList.add('leaving');
+    setTimeout(() => { shiftAnimating = false; renderShiftBtn(); }, 320);
+  }
   if (st.mode === 'idle') {
     const now = Date.now(), day = workDayOf(now);
     const prev = db.shifts[day];
