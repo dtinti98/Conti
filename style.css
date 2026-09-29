@@ -38,17 +38,29 @@ svg { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2
 .date-btn .chev { font-size: 18px; color: var(--muted); }
 .date-btn.past { color: #ffd60a; }
 .today-btn { font-size: 13px; font-weight: 600; padding: 5px 10px; border-radius: 99px; background: var(--surface-2); border: 1px solid var(--line); }
-/* Pulsantino turno */
-.shift-btn {
-  display: flex; align-items: center; gap: 5px; height: 30px; padding: 0 11px 0 9px; border-radius: 999px;
-  font-family: var(--font-num); font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums;
-  color: var(--muted); background: var(--surface); border: 1px solid var(--line);
+/* Pulsante turno (sotto il menu): verde = inizia, rosso = finisci */
+.tot-row { position: relative; display: flex; justify-content: center; align-items: center; margin-top: 6px; }
+.tot-row .tot-btn { margin-top: 0; }
+.shift-fab {
+  position: absolute; left: 0; top: 50%; width: 40px; height: 40px; margin-top: -20px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 16px; color: #fff;
 }
-.shift-btn svg { font-size: 14px; }
-.shift-btn.idle svg { fill: currentColor; stroke: none; }
-.shift-btn.running { color: var(--text); }
-.live-dot { width: 8px; height: 8px; border-radius: 50%; background: #34c759; box-shadow: 0 0 0 0 rgba(52,199,89,.6); animation: live 2s infinite; }
-@keyframes live { 70% { box-shadow: 0 0 0 6px rgba(52,199,89,0); } 100% { box-shadow: 0 0 0 0 rgba(52,199,89,0); } }
+.shift-fab svg { fill: currentColor; stroke: none; position: relative; z-index: 1; }
+.shift-fab.go { background: #30d158; color: #002b0c; }
+.shift-fab.stop { background: #ff3b30; animation: breathe 2.4s ease-in-out infinite; }
+.shift-fab::after { /* onda che si allarga al tocco */
+  content: ""; position: absolute; inset: 0; border-radius: 50%; border: 2px solid; opacity: 0; pointer-events: none;
+}
+.shift-fab.go::after { border-color: #30d158; }
+.shift-fab.stop::after { border-color: #ff3b30; }
+.shift-fab.pop { animation: pop-in .45s cubic-bezier(.3,1.6,.5,1) both; }
+.shift-fab.stop.pop { animation: pop-in .45s cubic-bezier(.3,1.6,.5,1) both, breathe 2.4s ease-in-out .45s infinite; }
+.shift-fab.leaving { animation: shrink .4s ease-in both; }
+.shift-fab.leaving::after { animation: ripple .45s ease-out both; }
+@keyframes pop-in { from { transform: scale(0); opacity: 0; } }
+@keyframes shrink { 30% { transform: scale(1.12); } to { transform: scale(0); opacity: 0; } }
+@keyframes ripple { from { transform: scale(1); opacity: .9; } to { transform: scale(2.4); opacity: 0; } }
+@keyframes breathe { 50% { box-shadow: 0 0 0 5px rgba(255,59,48,.18); } }
 .shift-note { display: block; width: 100%; line-height: 1.5; }
 .shift-note small { font-size: 11px; }
 .shift-note .edit-link { display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; color: #ffd60a; font-weight: 600; }
@@ -63,7 +75,7 @@ svg { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2
 .fuel-btn.empty #fuelVal { color: var(--muted); }
 
 .tot-btn {
-  align-self: center; margin-top: 6px;
+  align-self: center;
   font-family: var(--font-num); font-size: 22px; font-weight: 600; letter-spacing: .02em;
   padding: 8px 18px; border-radius: 99px; background: var(--surface); border: 1px solid var(--line);
 }

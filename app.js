@@ -375,24 +375,33 @@ function shiftBtnState() {
   if (viewDay === today && !sh.start) return { mode: 'idle', day: today };
   return { mode: 'done', day: viewDay };
 }
-const playSvg = '<svg viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z"/></svg>';
-const clockSvg = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>';
+const playSvg = '<svg viewBox="0 0 24 24"><path d="M8.5 5.8v12.4a.8.8 0 0 0 1.2.7l9.6-6.2a.8.8 0 0 0 0-1.4L9.7 5.1a.8.8 0 0 0-1.2.7z"/></svg>';
+const stopSvg = '<svg viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2.5"/></svg>';
+// Verde (▶) = inizia turno, rosso (■) = finisci turno, nascosto = turno finito o giorno passato
+let shiftShown = null, shiftAnimating = false;
 function renderShiftBtn() {
-  const b = $('shiftBtn'), st = shiftBtnState();
-  b.className = 'shift-btn ' + st.mode;
-  if (st.mode === 'running') {
-    b.innerHTML = `<i class="live-dot"></i><span>${fmtTime(db.shifts[st.day].start)}</span>`;
-  } else if (st.mode === 'idle') {
-    b.innerHTML = `${playSvg}<span>Inizia</span>`;
-  } else {
-    const hr = hourlyOf(st.day);
-    const sh = shiftOf(st.day);
-    const h = hr ? hr.hours : (sh.start && sh.end ? (sh.end - sh.start) / 3600000 : null);
-    b.innerHTML = `${clockSvg}<span>${h ? fmtHours(h) : '—'}</span>`;
-  }
+  if (shiftAnimating) return;
+  const b = $('shiftBtn'), mode = shiftBtnState().mode;
+  const show = mode === 'idle' ? 'go' : mode === 'running' ? 'stop' : null;
+  if (show === shiftShown) return;
+  const first = shiftShown === null && !b.dataset.ready;
+  b.dataset.ready = '1';
+  shiftShown = show;
+  if (!show) { b.hidden = true; b.className = 'shift-fab'; return; }
+  b.hidden = false;
+  b.className = 'shift-fab ' + show + (first ? '' : ' pop');
+  b.innerHTML = show === 'go' ? playSvg : stopSvg;
+  b.setAttribute('aria-label', show === 'go' ? 'Inizia turno' : 'Finisci turno');
 }
 $('shiftBtn').addEventListener('click', () => {
+  if (shiftAnimating) return;
   const st = shiftBtnState();
+  const b = $('shiftBtn');
+  // animazione: onda + il pulsante si rimpicciolisce, poi compare il nuovo stato
+  shiftAnimating = true;
+  b.classList.remove('pop');
+  b.classList.add('leaving');
+  setTimeout(() => { shiftAnimating = false; b.classList.remove('leaving'); renderShiftBtn(); }, 420);
   if (st.mode === 'idle') {
     const now = Date.now(), day = workDayOf(now);
     const prev = db.shifts[day];
@@ -413,8 +422,6 @@ $('shiftBtn').addEventListener('click', () => {
       save();
     });
     renderAll();
-  } else {
-    openShiftEdit(st.day);
   }
 });
 

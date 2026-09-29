@@ -30,14 +30,16 @@
       </button>
       <button id="todayBtn" class="today-btn" hidden>Oggi</button>
     </div>
-    <button id="shiftBtn" class="shift-btn" aria-label="Turno"></button>
     <button id="fuelBtn" class="fuel-btn" aria-label="Benzina">
       <svg viewBox="0 0 24 24" class="pump"><path d="M4 21V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v16M3 21h13M7 7h5M15 10h2a2 2 0 0 1 2 2v5a1.5 1.5 0 0 0 3 0V9l-3-3"/></svg>
       <span id="fuelVal">—</span>
     </button>
   </header>
 
-  <button id="totBtn" class="tot-btn">TOT <span id="totVal">0 €</span></button>
+  <div class="tot-row">
+    <button id="shiftBtn" class="shift-fab" hidden></button>
+    <button id="totBtn" class="tot-btn">TOT <span id="totVal">0 €</span></button>
+  </div>
 
   <main class="center">
     <div class="amount-area">
