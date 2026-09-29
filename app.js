@@ -474,8 +474,8 @@ function donut(ps) {
     return s;
   }).join('');
   return `<svg class="chart" viewBox="0 0 200 200" style="max-width:220px;margin:0 auto">${segs}
-    <text x="100" y="96" text-anchor="middle" style="font-size:12px">Totale</text>
-    <text x="100" y="118" text-anchor="middle" style="font-size:20px;fill:#f5f5f7;font-weight:700">${fmtEuro(total)}</text></svg>`;
+    <text x="100" y="94" text-anchor="middle" style="font-size:13px">Totale</text>
+    <text x="100" y="119" text-anchor="middle" style="font-size:22px;fill:#f5f5f7;font-weight:700">${fmtEuro(total)}</text></svg>`;
 }
 
 // Barre impilate per giorno (o per mese se il periodo è lungo)
@@ -493,13 +493,15 @@ function barChart(from, to, ps, width) {
   } else {
     buckets = days.map(k => ({ label: String(parseYmd(k).getDate()), ps: ps.filter(p => p.day === k) }));
   }
-  const H = 170, top = 16, bottom = 20, W = Math.max(260, width);
+  const H = 190, top = 24, bottom = 26, W = Math.max(260, width);
   const max = Math.max(...buckets.map(b => sum(b.ps)), 1);
   const slot = W / buckets.length, bw = Math.max(3, Math.min(28, slot * 0.7));
-  const every = Math.ceil(buckets.length / 10);
+  const every = Math.ceil(buckets.length / 7);           // al massimo ~7 etichette sotto
   let svg = `<svg class="chart" viewBox="0 0 ${W} ${H}">`;
-  svg += `<text x="0" y="10">${fmtEuro(max)}</text>`;
-  svg += `<line x1="0" x2="${W}" y1="${H - bottom}" y2="${H - bottom}" stroke="rgba(255,255,255,.12)"/>`;
+  // linea tratteggiata al valore massimo, con l'importo sopra
+  svg += `<line x1="0" x2="${W}" y1="${top}" y2="${top}" stroke="rgba(255,255,255,.14)" stroke-dasharray="3 4"/>`;
+  svg += `<text x="0" y="${top - 7}">max ${fmtEuro(max)}</text>`;
+  svg += `<line x1="0" x2="${W}" y1="${H - bottom}" y2="${H - bottom}" stroke="rgba(255,255,255,.14)"/>`;
   buckets.forEach((b, i) => {
     const x = i * slot + (slot - bw) / 2;
     let y = H - bottom;
@@ -509,7 +511,7 @@ function barChart(from, to, ps, width) {
       y -= h;
       svg += `<rect x="${x}" y="${y}" width="${bw}" height="${Math.max(h - 1, 0.5)}" rx="2" fill="${m.bordo}"/>`;
     });
-    if (i % every === 0) svg += `<text x="${x + bw / 2}" y="${H - 5}" text-anchor="middle">${b.label}</text>`;
+    if (i % every === 0) svg += `<text x="${x + bw / 2}" y="${H - 7}" text-anchor="middle">${b.label}</text>`;
   });
   return svg + '</svg>';
 }

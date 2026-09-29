@@ -1,10 +1,12 @@
 // Service worker: rende l'app utilizzabile anche senza internet.
 // Quando modifichi i file dell'app, aumenta VERSION così il telefono scarica la nuova versione.
-const VERSION = 'conti-v7';
+const VERSION = 'conti-v8';
 const FILES = ['./', 'index.html', 'style.css', 'app.js', 'manifest.webmanifest', 'icon-180.png', 'icon-512.png'];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(VERSION)
+    .then(c => c.addAll(FILES.map(f => new Request(f, { cache: 'reload' }))))
+    .then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', e => {
@@ -21,7 +23,10 @@ self.addEventListener('activate', e => {
 const TIMEOUT_MS = 3000;
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
-  const network = fetch(e.request).then(res => {
+  // I file dell'app vengono sempre ricontrollati sul server (niente copie vecchie della cache del browser)
+  const sameOrigin = new URL(e.request.url).origin === self.location.origin;
+  const req = sameOrigin ? fetch(e.request.url, { cache: 'no-cache', credentials: 'same-origin' }) : fetch(e.request);
+  const network = req.then(res => {
     if (res.ok || res.type === 'opaque') {
       const copy = res.clone();
       caches.open(VERSION).then(c => c.put(e.request, copy));
