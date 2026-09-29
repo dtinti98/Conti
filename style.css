@@ -29,7 +29,7 @@ svg { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2
   height: 100%;
   display: flex; flex-direction: column;
   /* più spazio in alto: le icone restano sotto la barra di stato / Dynamic Island dell'iPhone */
-  padding: calc(max(var(--safe-top), 20px) + 22px) 16px calc(var(--safe-bottom) + 2px);
+  padding: calc(max(var(--safe-top), 20px) + 30px) 16px calc(var(--safe-bottom) + 2px);
   position: relative;
   max-width: 520px; margin: 0 auto;
 }
