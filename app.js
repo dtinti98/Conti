@@ -1099,23 +1099,79 @@ const SFONDI = [
 const bgCss = s => s.foto
   ? `linear-gradient(rgba(0,0,0,.35), rgba(0,0,0,.55)), url("${s.foto}") center / cover no-repeat`
   : s.css;
+
+// Foto scelta dalla galleria: salvata a parte, solo su questo telefono (non va nel backup né online)
+const PHOTO_KEY = 'appconti:foto';
+let userPhoto = null;
+try { userPhoto = localStorage.getItem(PHOTO_KEY); } catch (e) { /* niente foto */ }
+const photoSfondo = () => (userPhoto ? { id: 'foto', nome: 'La tua foto', foto: userPhoto } : null);
+
 function applySettings() {
-  const s = SFONDI.find(x => x.id === db.settings.sfondo) || SFONDI[0];
+  const s = (db.settings.sfondo === 'foto' && photoSfondo()) || SFONDI.find(x => x.id === db.settings.sfondo) || SFONDI[0];
   $('bgLayer').style.background = bgCss(s);
 }
 function renderSettings() {
   const cur = db.settings.sfondo || 'nero';
-  $('bgGrid').innerHTML = SFONDI.map(s => `
-    <button class="bg-tile ${s.id === cur ? 'on' : ''}" data-bg="${s.id}">
-      <span class="prev" style='background:${bgCss(s)}'></span>${esc(s.nome)}</button>`).join('');
+  const tile = (s, cls = '') => `
+    <button class="bg-tile ${cls} ${s.id === cur ? 'on' : ''}" data-bg="${s.id}">
+      <span class="prev" style='background:${s.css || s.foto ? bgCss(s) : ''}'></span>${esc(s.nome)}</button>`;
+  const photo = photoSfondo();
+  $('bgGrid').innerHTML = (photo ? tile(photo) : tile({ id: 'add', nome: 'Dalla galleria' }, 'add'))
+    + SFONDI.map(s => tile(s)).join('');
+  $('photoActions').hidden = !photo;
 }
 $('bgGrid').addEventListener('click', e => {
   const t = e.target.closest('[data-bg]');
   if (!t) return;
+  if (t.dataset.bg === 'add') return $('photoInput').click();
   db.settings.sfondo = t.dataset.bg;
   save();
   applySettings();
   renderSettings();
+});
+$('photoChange').addEventListener('click', () => $('photoInput').click());
+$('photoRemove').addEventListener('click', async () => {
+  if (!(await ask('Togliere la tua foto dagli sfondi?', { ok: 'Togli', danger: true }))) return;
+  userPhoto = null;
+  try { localStorage.removeItem(PHOTO_KEY); } catch (e) { /* ok */ }
+  if (db.settings.sfondo === 'foto') { db.settings.sfondo = 'nero'; save(); }
+  applySettings();
+  renderSettings();
+});
+
+// Ridimensiona la foto alla misura dello schermo (max 1400 px) e la comprime in JPEG
+function shrinkPhoto(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const max = 1400, k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.naturalWidth * k);
+      c.height = Math.round(img.naturalHeight * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      resolve(c.toDataURL('image/jpeg', 0.8));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('immagine')); };
+    img.src = url;
+  });
+}
+$('photoInput').addEventListener('change', async e => {
+  const f = e.target.files[0];
+  e.target.value = '';
+  if (!f) return;
+  try {
+    const data = await shrinkPhoto(f);
+    localStorage.setItem(PHOTO_KEY, data);
+    userPhoto = data;
+    db.settings.sfondo = 'foto';
+    save();
+    applySettings();
+    renderSettings();
+  } catch (err) {
+    notify(err.message === 'immagine' ? 'Non riesco ad aprire questa immagine.' : 'La foto è troppo grande da salvare sul telefono.');
+  }
 });
 $('openSettings').addEventListener('click', () => {
   closeSheet($('menuSheet'));

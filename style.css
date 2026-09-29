@@ -320,6 +320,10 @@ html { background: #000; }
   font-family: var(--font-num); font-size: 22px; font-weight: 500; color: rgba(255,255,255,.85);
 }
 .bg-tile.on { color: var(--text); }
+.bg-tile.add .prev { background: var(--surface-2); border-style: dashed; border-color: rgba(255,255,255,.25); }
+.bg-tile.add .prev::after { content: "+"; font-size: 34px; font-weight: 300; color: var(--muted); }
+.photo-actions { margin-top: 14px; }
+.photo-actions button { min-height: 44px; font-size: 15px; }
 .bg-tile.on .prev { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--text); }
 
 /* Finestra di conferma */
