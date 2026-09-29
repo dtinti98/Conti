@@ -165,6 +165,7 @@ svg { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2
 }
 .keypad button:active { background: #2c2c2e; }
 .keypad .k-alt { color: var(--muted); font-size: 22px; }
+.keypad .bksp { font-size: 28px; stroke-width: 1.7; }
 
 /* Calendario */
 .cal-head { display: flex; justify-content: space-between; align-items: center; font-weight: 700; font-size: 17px; text-transform: capitalize; }
