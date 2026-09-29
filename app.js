@@ -23,6 +23,7 @@ const MINUTI_PRIMA_CORSA = 20;    // inizio turno stimato = primo incasso - 20 m
 const STORAGE_KEY = 'appconti:v1';
 const MAX_CENTS = 9999999;        // 99.999,99 €
 const ROW_H = 38;                 // altezza riga della rotella
+const DURATA_ANNULLA_MS = 5000;   // per quanto resta il popup "Annulla" dopo un inserimento
 
 /* ===================== Dati ===================== */
 const emptyDb = () => ({ v: 1, payments: [], fuel: {}, lastBackup: null, methods: null, oldMethods: {} });
@@ -315,11 +316,24 @@ $('confirmBtn').addEventListener('click', () => {
   renderAll(p.id);
 });
 function showToast(text) {
+  const t = $('toast');
   $('toastText').textContent = text;
-  $('toast').hidden = false;
+  t.hidden = false;
   $('confirmBtn').style.visibility = 'hidden';
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(hideToast, 5000);
+  toastTimer = setTimeout(hideToast, DURATA_ANNULLA_MS);
+  drawToastRing(t);
+}
+// Bordino bianco tutto intorno al popup che si consuma nel tempo in cui si può annullare
+function drawToastRing(t) {
+  const old = t.querySelector('.toast-ring');
+  if (old) old.remove();
+  const w = t.offsetWidth, h = t.offsetHeight, i = 0.75, r = h / 2 - i;
+  const x0 = i, y0 = i, x1 = w - i, y1 = h - i;
+  const d = `M ${w / 2} ${y0} H ${x1 - r} A ${r} ${r} 0 0 1 ${x1 - r} ${y1} H ${x0 + r} A ${r} ${r} 0 0 1 ${x0 + r} ${y0} Z`;
+  t.insertAdjacentHTML('afterbegin',
+    `<svg class="toast-ring" viewBox="0 0 ${w} ${h}" aria-hidden="true">
+       <path d="${d}" pathLength="100" style="animation-duration:${DURATA_ANNULLA_MS}ms"/></svg>`);
 }
 function hideToast() {
   $('toast').hidden = true;
