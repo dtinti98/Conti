@@ -137,12 +137,14 @@ function hourlyOf(day) {
   if (!ps.length) return null;
   const sh = shiftOf(day);
   const first = ps[0].ts, last = ps[ps.length - 1].ts;
-  // il turno comprende sempre tutte le corse (es. "Inizia" premuto in ritardo)
-  const start = sh.start ? Math.min(sh.start, first) : first - MINUTI_PRIMA_CORSA * 60000;
+  // turno avviato in automatico dalla prima corsa (auto): segue sempre la regola dei 20 minuti
+  const manualStart = sh.start && !sh.auto;
+  // il turno comprende sempre tutte le corse (es. taxi premuto in ritardo)
+  const start = manualStart ? Math.min(sh.start, first) : first - MINUTI_PRIMA_CORSA * 60000;
   const end = sh.end ? Math.max(sh.end, last) : last;
   const hours = Math.max((end - start) / 3600000, 1 / 60);
   // "manuale" solo se l'orario usato è davvero quello premuto (non allargato dalle corse)
-  return { start, end, hours, startManual: !!sh.start && sh.start <= first, endManual: !!sh.end && sh.end >= last, perHour: sum(ps) / hours };
+  return { start, end, hours, startManual: !!manualStart && sh.start <= first, endManual: !!sh.end && sh.end >= last, perHour: sum(ps) / hours };
 }
 // Turno iniziato e non ancora finito (anche se nel frattempo sono passate le 4:00)
 function openShiftDay() {
@@ -331,10 +333,15 @@ $('confirmBtn').addEventListener('click', () => {
   }
   const now = Date.now();
   const p = { id: uid(), cents: entry.cents, method: entry.method, ts: now, day: workDayOf(now) };
+  // prima corsa senza aver premuto il taxi: il turno parte da solo (inizio = 20 min prima)
+  const autoShift = shiftBtnState().mode === 'idle';
+  if (autoShift) db.shifts[p.day] = { start: now - MINUTI_PRIMA_CORSA * 60000, auto: true };
   db.payments.push(p); save();
   entry = { cents: 0, method: null };
-  showToast(`${fmtEuro(p.cents)} · ${p.method}`, () => {
-    db.payments = db.payments.filter(x => x.id !== p.id); save();
+  showToast(`${fmtEuro(p.cents)} · ${p.method}${autoShift ? ' · turno avviato' : ''}`, () => {
+    db.payments = db.payments.filter(x => x.id !== p.id);
+    if (autoShift) delete db.shifts[p.day];         // annullando la corsa si annulla anche l'avvio
+    save();
     entry = { cents: p.cents, method: p.method };   // torna l'importo e il metodo per correggere
   });
   renderAll(p.id);
