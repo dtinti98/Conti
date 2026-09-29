@@ -63,8 +63,8 @@ svg { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2
 .amount.zero .cur { color: #3a3a3c; }
 
 /* Rotella pagamenti (stile sveglia iPhone), in basso a destra come nello schizzo */
-.wheel-row { position: absolute; right: 0; bottom: 0; width: 92px; height: 160px; }
-.wheel-wrap { position: absolute; right: -6px; top: 0; width: 92px; height: 160px; }
+.wheel-row { position: absolute; right: 0; bottom: 0; width: 116px; height: 160px; }
+.wheel-wrap { position: absolute; right: -6px; top: 0; width: 116px; height: 160px; }
 .wheel-wrap::before { /* banda di selezione */
   content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 38px; transform: translateY(-50%);
   border-radius: 10px; background: var(--surface-2); pointer-events: none;
@@ -79,12 +79,14 @@ svg { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2
 .wheel::-webkit-scrollbar { display: none; }
 .wheel-item {
   height: 38px; width: 100%; scroll-snap-align: center;
-  display: flex; align-items: center; justify-content: flex-end; gap: 6px; padding: 0 10px 0 6px;
+  display: flex; align-items: center; justify-content: flex-end; gap: 6px; padding: 0 10px 0 8px;
   font-family: var(--font-num); font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums;
   color: var(--muted); transition: color .15s;
 }
 .wheel-item .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
-.wheel-item .pen { font-size: 15px; margin-right: auto; opacity: 0; transition: opacity .15s; color: #ffd60a; }
+.wheel-item span { white-space: nowrap; min-width: 0; }
+/* matita sempre della stessa grandezza, anche con importi lunghi */
+.wheel-item .pen { width: 16px; height: 16px; flex: none; margin-right: auto; opacity: 0; transition: opacity .15s; color: #ffd60a; }
 .wheel-item.sel { color: var(--text); }
 .wheel-item.sel .pen { opacity: 1; }
 .wheel-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: flex-end; padding-right: 12px; color: #3a3a3c; font-size: 13px; pointer-events: none; }
