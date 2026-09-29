@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Conti">
+<title>Conti</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-512.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="app">
+  <header class="top">
+    <div class="top-left">
+      <button id="menuBtn" class="menu-btn" aria-label="Menu">
+        <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+      <button id="dateBtn" class="date-btn"><span id="dateLabel">--/--/--</span>
+        <svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <button id="todayBtn" class="today-btn" hidden>Oggi</button>
+    </div>
+    <button id="fuelBtn" class="fuel-btn" aria-label="Benzina">
+      <svg viewBox="0 0 24 24" class="pump"><path d="M4 21V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v16M3 21h13M7 7h5M15 10h2a2 2 0 0 1 2 2v5a1.5 1.5 0 0 0 3 0V9l-3-3"/></svg>
+      <span id="fuelVal">—</span>
+    </button>
+  </header>
+
+  <button id="totBtn" class="tot-btn">TOT <span id="totVal">0 €</span></button>
+
+  <main class="center">
+    <div class="amount-area">
+      <button id="amountBtn" class="amount"><span id="amountVal">0,00</span><span class="cur">€</span></button>
+    </div>
+    <div class="wheel-row">
+      <div id="wheelWrap" class="wheel-wrap">
+        <div id="wheel" class="wheel"></div>
+      </div>
+    </div>
+  </main>
+
+  <section id="methods" class="methods"></section>
+
+  <div class="confirm-row">
+    <button id="confirmBtn" class="confirm-btn" disabled aria-label="Conferma">
+      <svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+    </button>
+    <div id="toast" class="toast" hidden>
+      <span id="toastText"></span>
+      <button id="undoBtn">Annulla</button>
+    </div>
+  </div>
+</div>
+
+<div id="backdrop" class="backdrop"></div>
+
+<!-- Tastierino -->
+<section id="keypadSheet" class="sheet keypad-sheet">
+  <div class="sheet-grip"></div>
+  <div class="keypad-head">
+    <span id="keypadTitle">Importo</span>
+    <span id="keypadPreview" class="keypad-preview"></span>
+  </div>
+  <div class="keypad">
+    <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+    <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+    <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+    <button data-k="C" class="k-alt">C</button><button data-k="0">0</button>
+    <button data-k="B" class="k-alt" aria-label="Cancella"><svg viewBox="0 0 24 24"><path d="M9 5h11v14H9l-6-7zM12 9l6 6M18 9l-6 6"/></svg></button>
+  </div>
+  <button id="keypadDone" class="primary-btn">Fatto</button>
+</section>
+
+<!-- Calendario -->
+<section id="calSheet" class="sheet">
+  <div class="sheet-grip"></div>
+  <div class="cal-head">
+    <button id="calPrev" class="icon-btn"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+    <span id="calTitle"></span>
+    <button id="calNext" class="icon-btn"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
+  </div>
+  <div class="cal-dow"><span>L</span><span>M</span><span>M</span><span>G</span><span>V</span><span>S</span><span>D</span></div>
+  <div id="calGrid" class="cal-grid"></div>
+  <button id="calToday" class="secondary-btn">Vai a oggi</button>
+</section>
+
+<!-- Riepilogo giornata -->
+<section id="totSheet" class="sheet tall">
+  <div class="sheet-grip"></div>
+  <div class="sheet-title">Riepilogo <span id="totSheetDate" class="muted"></span></div>
+  <div id="totSheetBody" class="sheet-scroll"></div>
+</section>
+
+<!-- Modifica / aggiungi pagamento -->
+<section id="editSheet" class="sheet">
+  <div class="sheet-grip"></div>
+  <div class="sheet-title" id="editTitle">Modifica pagamento</div>
+  <button id="editAmount" class="edit-amount"></button>
+  <div id="editMethods" class="methods small"></div>
+  <label class="edit-time">Orario <input id="editTime" type="time"></label>
+  <div class="edit-actions">
+    <button id="editDelete" class="danger-btn">Elimina</button>
+    <button id="editSave" class="primary-btn">Salva</button>
+  </div>
+</section>
+
+<!-- Menu -->
+<section id="menuSheet" class="sheet">
+  <div class="sheet-grip"></div>
+  <div class="sheet-title">Menu</div>
+  <button class="menu-item" id="openStats">Grafici e statistiche</button>
+  <button class="menu-item" id="openExport">Esporta (CSV / Markdown)</button>
+  <button class="menu-item" id="openMethods">Metodi di pagamento</button>
+  <div class="menu-sep">Backup</div>
+  <button class="menu-item" id="backupBtn">Salva backup</button>
+  <button class="menu-item" id="restoreBtn">Ripristina backup</button>
+  <input id="restoreInput" type="file" hidden>
+  <p id="backupInfo" class="muted small-text"></p>
+</section>
+
+<!-- Statistiche -->
+<section id="statsSheet" class="sheet tall">
+  <div class="sheet-grip"></div>
+  <div class="sheet-title">Statistiche</div>
+  <div id="statsPicker"></div>
+  <div id="statsBody" class="sheet-scroll"></div>
+</section>
+
+<!-- Esporta -->
+<section id="exportSheet" class="sheet tall">
+  <div class="sheet-grip"></div>
+  <div class="sheet-title">Esporta</div>
+  <div id="exportPicker"></div>
+  <div class="seg" id="exportFormat">
+    <button data-v="csv" class="on">CSV</button><button data-v="md">Markdown</button>
+  </div>
+  <div class="seg" id="exportKind">
+    <button data-v="days" class="on">Totali per giorno</button><button data-v="all">Ogni pagamento</button>
+  </div>
+  <pre id="exportPreview" class="export-preview"></pre>
+  <div class="edit-actions">
+    <button id="exportCopy" class="secondary-btn">Copia</button>
+    <button id="exportShare" class="primary-btn">Salva file</button>
+  </div>
+  <p class="muted small-text">"Copia" in formato CSV usa le tabulazioni: incollando in Excel ogni valore finisce nella sua cella.</p>
+</section>
+
+<!-- Impostazioni metodi -->
+<section id="methodsSheet" class="sheet tall">
+  <div class="sheet-grip"></div>
+  <div class="sheet-title">Metodi di pagamento</div>
+  <div id="methodsList" class="sheet-scroll"></div>
+</section>
+
+<!-- Scelta colore -->
+<section id="colorSheet" class="sheet">
+  <div class="sheet-grip"></div>
+  <div class="sheet-title" id="colorTitle">Colore</div>
+  <div id="swatches" class="swatches"></div>
+  <label class="secondary-btn custom-color">Altro colore…<input id="customColor" type="color"></label>
+</section>
+
+<!-- Finestra di conferma -->
+<div id="dialog" class="dialog" hidden>
+  <div class="dialog-box">
+    <p id="dialogText"></p>
+    <div class="edit-actions">
+      <button id="dialogCancel" class="secondary-btn">Annulla</button>
+      <button id="dialogOk" class="danger-btn">Elimina</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
