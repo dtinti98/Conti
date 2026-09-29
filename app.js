@@ -1082,6 +1082,107 @@ $('openMethods').addEventListener('click', () => {
   openSheet($('methodsSheet'));
 });
 
+/* ===================== Dentro o fuori le Mura Aureliane ===================== */
+// Il contorno è in zona-mura.js (MURA_AURELIANE = [[lat, lon], ...]).
+// Tutto il calcolo avviene sul telefono: la posizione non viene inviata da nessuna parte.
+const MARGINE_CONFINE_M = 25;   // sotto questa distanza (o sotto la precisione del GPS) diciamo "sul confine"
+
+function insideMura(lat, lon) {
+  const P = MURA_AURELIANE;
+  let c = false;
+  for (let i = 0, j = P.length - 1; i < P.length; j = i++) {
+    const [yi, xi] = P[i], [yj, xj] = P[j];
+    if ((yi > lat) !== (yj > lat) && lon < (xj - xi) * (lat - yi) / (yj - yi) + xi) c = !c;
+  }
+  return c;
+}
+// Distanza in metri dal contorno più vicino
+function distanceToMura(lat, lon) {
+  const P = MURA_AURELIANE, kx = 111320 * Math.cos(lat * Math.PI / 180), ky = 110540;
+  let best = Infinity;
+  for (let i = 0, j = P.length - 1; i < P.length; j = i++) {
+    const ax = (P[j][1] - lon) * kx, ay = (P[j][0] - lat) * ky;
+    const bx = (P[i][1] - lon) * kx, by = (P[i][0] - lat) * ky;
+    const dx = bx - ax, dy = by - ay;
+    const t = Math.max(0, Math.min(1, -(ax * dx + ay * dy) / (dx * dx + dy * dy || 1)));
+    best = Math.min(best, Math.hypot(ax + t * dx, ay + t * dy));
+  }
+  return best;
+}
+const fmtDist = m => (m < 1000 ? `${Math.round(m / 5) * 5} m` : `${(m / 1000).toFixed(1).replace('.', ',')} km`);
+
+// Mini-mappa: contorno delle Mura + puntino della posizione
+function drawMuraMap(pos) {
+  const W = 300, H = 220, pad = 14;
+  const lats = MURA_AURELIANE.map(p => p[0]), lons = MURA_AURELIANE.map(p => p[1]);
+  const midLat = (Math.min(...lats) + Math.max(...lats)) / 2, kx = Math.cos(midLat * Math.PI / 180);
+  let minX = Math.min(...lons) * kx, maxX = Math.max(...lons) * kx, minY = Math.min(...lats), maxY = Math.max(...lats);
+  // se sei poco fuori, allarga la vista per includerti; se sei lontano, il puntino resta sul bordo
+  if (pos) {
+    const px = pos.lon * kx, py = pos.lat, span = Math.max(maxX - minX, maxY - minY) * 0.6;
+    minX = Math.min(minX, Math.max(px, minX - span)); maxX = Math.max(maxX, Math.min(px, maxX + span));
+    minY = Math.min(minY, Math.max(py, minY - span)); maxY = Math.max(maxY, Math.min(py, maxY + span));
+  }
+  const s = Math.min((W - 2 * pad) / (maxX - minX), (H - 2 * pad) / (maxY - minY));
+  const ox = (W - (maxX - minX) * s) / 2, oy = (H - (maxY - minY) * s) / 2;
+  const X = lon => ox + (lon * kx - minX) * s, Y = lat => H - oy - (lat - minY) * s;
+  const d = MURA_AURELIANE.map((p, i) => `${i ? 'L' : 'M'}${X(p[1]).toFixed(1)} ${Y(p[0]).toFixed(1)}`).join('') + 'Z';
+  let svg = `<path d="${d}" fill="rgba(255,55,95,.16)" stroke="#ff375f" stroke-width="1.6" stroke-linejoin="round"/>`;
+  if (pos) {
+    const cx = Math.max(6, Math.min(W - 6, X(pos.lon))), cy = Math.max(6, Math.min(H - 6, Y(pos.lat)));
+    const acc = Math.min(40, (pos.acc / 111320) * s);   // cerchio della precisione GPS
+    svg += `<circle cx="${cx}" cy="${cy}" r="${Math.max(acc, 0)}" fill="rgba(10,132,255,.15)"/>
+            <circle class="gps-ring" cx="${cx}" cy="${cy}" r="6" fill="none" stroke="#0a84ff" stroke-width="2"/>
+            <circle cx="${cx}" cy="${cy}" r="6" fill="#0a84ff" stroke="#fff" stroke-width="2"/>`;
+  }
+  $('muraMap').innerHTML = svg;
+}
+
+let muraWatch = null;
+function showMuraState(cls, title, detail) {
+  const st = $('muraStatus');
+  st.className = 'mura-status ' + cls;
+  st.textContent = title;
+  $('muraDetail').textContent = detail || '';
+}
+function onMuraPosition(p) {
+  const pos = { lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy || 0 };
+  const inside = insideMura(pos.lat, pos.lon);
+  const dist = distanceToMura(pos.lat, pos.lon);
+  const precision = `precisione GPS ±${Math.round(pos.acc)} m`;
+  if (dist <= Math.max(MARGINE_CONFINE_M, pos.acc)) {
+    showMuraState('edge', 'SUL CONFINE', `A ${fmtDist(dist)} dalle Mura, ${inside ? 'probabilmente dentro' : 'probabilmente fuori'} · ${precision}`);
+  } else if (inside) {
+    showMuraState('in', 'DENTRO LE MURA', `A ${fmtDist(dist)} dal confine · ${precision}`);
+  } else {
+    showMuraState('out', 'FUORI DALLE MURA', `A ${fmtDist(dist)} dal confine · ${precision}`);
+  }
+  drawMuraMap(pos);
+}
+function onMuraError(err) {
+  const msg = err.code === 1
+    ? 'Permesso posizione negato. Su iPhone: Impostazioni → Privacy → Localizzazione → Safari (o Siti web Safari) → "Mentre usi l\'app".'
+    : err.code === 3 ? 'Il GPS non risponde, riprovo…' : 'Posizione non disponibile. Controlla che la localizzazione sia attiva.';
+  showMuraState('', err.code === 3 ? 'Cerco il GPS…' : 'Posizione non disponibile', msg);
+}
+function startMura() {
+  drawMuraMap(null);
+  if (!('geolocation' in navigator)) return showMuraState('', 'GPS non disponibile', 'Questo browser non permette di leggere la posizione.');
+  showMuraState('', 'Cerco il GPS…', 'La prima volta il telefono chiede il permesso di usare la posizione.');
+  // segue la posizione finché il pannello resta aperto (utile mentre si guida)
+  muraWatch = navigator.geolocation.watchPosition(onMuraPosition, onMuraError,
+    { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
+}
+function stopMura() {
+  if (muraWatch !== null) navigator.geolocation.clearWatch(muraWatch);
+  muraWatch = null;
+}
+$('muraBtn').addEventListener('click', () => {
+  $('muraSheet')._onClose = stopMura;
+  openSheet($('muraSheet'));
+  startMura();
+});
+
 /* ===================== Impostazioni: sfondo ===================== */
 // Sfondi scuri, così le scritte bianche restano leggibili.
 // Per una foto: { id, nome, foto: 'bg/nomefile.jpg' } (viene scurita un po' in automatico).

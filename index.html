@@ -31,10 +31,16 @@
       </button>
       <button id="todayBtn" class="today-btn" hidden>Oggi</button>
     </div>
-    <button id="fuelBtn" class="fuel-btn" aria-label="Benzina">
-      <svg viewBox="0 0 24 24" class="pump"><path d="M4 21V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v16M3 21h13M7 7h5M15 10h2a2 2 0 0 1 2 2v5a1.5 1.5 0 0 0 3 0V9l-3-3"/></svg>
-      <span id="fuelVal">—</span>
-    </button>
+    <div class="top-right">
+      <!-- dentro/fuori Mura Aureliane: tratto di mura con merli e porta -->
+      <button id="muraBtn" class="mura-btn" aria-label="Dentro o fuori le Mura">
+        <svg viewBox="0 0 24 24"><path d="M4 20V8h2.5v2.5H9V8h2v2.5h2V8h2v2.5h2.5V8H20v12z"/><path d="M10 20v-3.5a2 2 0 0 1 4 0V20"/></svg>
+      </button>
+      <button id="fuelBtn" class="fuel-btn" aria-label="Benzina">
+        <svg viewBox="0 0 24 24" class="pump"><path d="M4 21V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v16M3 21h13M7 7h5M15 10h2a2 2 0 0 1 2 2v5a1.5 1.5 0 0 0 3 0V9l-3-3"/></svg>
+        <span id="fuelVal">—</span>
+      </button>
+    </div>
   </header>
 
   <div class="tot-row">
@@ -190,6 +196,20 @@
   <button id="shiftSave" class="primary-btn">Salva</button>
 </section>
 
+<!-- Dentro o fuori le Mura Aureliane -->
+<section id="muraSheet" class="sheet">
+  <div class="sheet-grip"></div>
+  <div class="sheet-title">Mura Aureliane</div>
+  <div id="muraStatus" class="mura-status"></div>
+  <div id="muraDetail" class="mura-detail muted"></div>
+  <svg id="muraMap" class="mura-map" viewBox="0 0 300 220"></svg>
+  <div class="mura-fares">
+    <div><span>Fiumicino ↔ Mura</span><b>55 €</b></div>
+    <div><span>Ciampino ↔ Mura</span><b>40 €</b></div>
+  </div>
+  <p class="muted small-text mura-note">La posizione viene usata solo sul telefono, non viene inviata a nessuno. Zona dalla mappa "Tariffe Fisse Comune di Roma".</p>
+</section>
+
 <!-- Impostazioni (personalizzazione schermata) -->
 <section id="settingsSheet" class="sheet tall">
   <div class="sheet-grip"></div>
@@ -232,6 +252,7 @@
   </div>
 </div>
 
+<script src="zona-mura.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

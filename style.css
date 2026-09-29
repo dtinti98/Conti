@@ -88,6 +88,28 @@ svg { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2
 .clear-btn { font-size: 13px; font-weight: 600; color: var(--muted); padding: 10px 12px; border-radius: 999px; background: var(--surface-2); }
 .shift-hint { margin: -6px 0 0; min-height: 18px; }
 
+.top-right { display: flex; align-items: center; gap: 12px; }
+.mura-btn { font-size: 23px; color: var(--muted); padding: 6px 2px; display: grid; }
+.mura-btn svg { stroke-width: 1.7; }
+
+/* Pannello Mura Aureliane */
+.mura-status {
+  text-align: center; font-family: var(--font-num); font-size: 26px; font-weight: 800; letter-spacing: .01em;
+  padding: 14px; border-radius: 18px; background: var(--surface-2); color: var(--muted);
+}
+.mura-status.in { color: #32d74b; background: rgba(50,215,75,.12); }
+.mura-status.out { color: #ff453a; background: rgba(255,69,58,.12); }
+.mura-status.edge { color: #ffd60a; background: rgba(255,214,10,.12); }
+.mura-detail { text-align: center; font-size: 14px; margin-top: -4px; min-height: 18px; }
+.mura-map { width: 100%; height: auto; display: block; border-radius: 16px; background: rgba(255,255,255,.03); }
+.mura-fares { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mura-fares div { background: var(--surface-2); border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
+.mura-fares span { font-size: 12px; color: var(--muted); }
+.mura-fares b { font-family: var(--font-num); font-size: 20px; }
+.mura-note { margin: 0; }
+@keyframes gps-pulse { from { transform: scale(1); opacity: .6; } to { transform: scale(3); opacity: 0; } }
+.gps-ring { transform-box: fill-box; transform-origin: center; animation: gps-pulse 1.6s ease-out infinite; }
+
 .fuel-btn { display: flex; align-items: center; gap: 6px; font-family: var(--font-num); font-size: 19px; font-weight: 600; padding: 6px 2px; }
 .fuel-btn .pump { font-size: 22px; color: var(--muted); }
 .fuel-btn.empty #fuelVal { color: var(--muted); }
