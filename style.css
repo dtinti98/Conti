@@ -90,7 +90,7 @@ svg { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2
 
 .top-right { display: flex; align-items: center; gap: 12px; }
 .mura-btn { font-size: 23px; color: var(--muted); padding: 6px 2px; display: grid; }
-.mura-btn svg { stroke-width: 1.7; }
+.mura-btn svg { stroke-width: 1.6; transform: rotate(45deg); }
 
 /* Pannello Mura Aureliane */
 .mura-status {
