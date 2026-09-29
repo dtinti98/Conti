@@ -140,7 +140,8 @@ function hourlyOf(day) {
   const start = sh.start ? Math.min(sh.start, first) : first - MINUTI_PRIMA_CORSA * 60000;
   const end = sh.end ? Math.max(sh.end, last) : last;
   const hours = Math.max((end - start) / 3600000, 1 / 60);
-  return { start, end, hours, startManual: !!sh.start, endManual: !!sh.end, perHour: sum(ps) / hours };
+  // "manuale" solo se l'orario usato è davvero quello premuto (non allargato dalle corse)
+  return { start, end, hours, startManual: !!sh.start && sh.start <= first, endManual: !!sh.end && sh.end >= last, perHour: sum(ps) / hours };
 }
 // Turno iniziato e non ancora finito (anche se nel frattempo sono passate le 4:00)
 function openShiftDay() {
@@ -653,6 +654,10 @@ function barChart(from, to, ps, width) {
 }
 
 const penSvg = '<svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4"/></svg>';
+// stesse icone dell'interruttore del turno (index.html)
+const taxiSvg = '<svg viewBox="0 0 24 24"><path d="M10 3.5h4v2h-4z"/><path d="M5.5 11l1.4-3.9A2.2 2.2 0 0 1 9 5.5h6a2.2 2.2 0 0 1 2.1 1.6l1.4 3.9"/><rect x="3.5" y="11" width="17" height="6" rx="2"/><path d="M7.5 14h.01M16.5 14h.01M6.5 17v2M17.5 17v2"/></svg>';
+const flagSvg = '<svg viewBox="0 0 24 24"><path d="M6 21V3.5"/><path d="M6 4.5c2.5-1.3 4.5-1.3 6.5 0s4 1.3 6.5 0v8c-2.5 1.3-4.5 1.3-6.5 0s-4-1.3-6.5 0"/></svg>';
+const clockLineSvg = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>';
 const pumpSvg = '<svg viewBox="0 0 24 24"><path d="M4 21V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v16M3 21h13M7 7h5M15 10h2a2 2 0 0 1 2 2v5a1.5 1.5 0 0 0 3 0V9l-3-3"/></svg>';
 
 /* ===================== Riepilogo giornata (TOT) ===================== */
@@ -669,10 +674,13 @@ function renderTotSheet() {
     <div class="kpi"><b>${hr ? fmtEuro(Math.round(hr.perHour)) : '—'}</b><span>media oraria</span></div>
     <div class="kpi"><b>${hr ? fmtHours(hr.hours) : '—'}</b><span>ore</span></div>
   </div>`;
-  if (hr) h += `<button class="kpi-note shift-note" id="totShift">
-      Turno ${fmtTime(hr.start)} – ${fmtTime(hr.end)}<br>
-      <small>inizio: ${hr.startManual ? 'dal taxi' : MINUTI_PRIMA_CORSA + ' min prima del primo incasso'} ·
-      fine: ${hr.endManual ? 'dalla bandierina' : 'ultimo incasso'}</small>
+  // Inizio/fine con la stessa icona dello schermo principale (taxi / bandierina);
+  // orologio se l'orario è calcolato in automatico
+  if (hr) h += `<button class="shift-note" id="totShift">
+      <span class="shift-times">
+        <span class="st go">Inizio ${fmtTime(hr.start)} ${hr.startManual ? taxiSvg : clockLineSvg}</span>
+        <span class="st stop">Fine ${fmtTime(hr.end)} ${hr.endManual ? flagSvg : clockLineSvg}</span>
+      </span>
       <span class="edit-link">${penSvg} modifica orari</span></button>`;
   h += `<div class="section-label">Per metodo</div>` + methodBlock(ps);
   h += `<div class="section-label">Pagamenti</div>`;
