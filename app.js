@@ -815,12 +815,19 @@ function renderStats() {
   const [from, to] = statsPicker.range();
   const ps = paymentsBetween(from, to);
   const body = $('statsBody');
-  if (!ps.length) { body.innerHTML = `<div class="empty-msg">Nessun pagamento in questo periodo</div>`; return; }
+  if (!ps.length) {
+    const fuel = from === to ? db.fuel[from] || 0 : 0;
+    body.innerHTML = (fuel ? `<div class="fuel-note" style="margin-top:14px">${pumpSvg} Benzina messa: ${fmtEuro(fuel)}</div>` : '')
+      + `<div class="empty-msg">Nessun pagamento in questo periodo</div>`;
+    return;
+  }
   const total = sum(ps);
   const workedDays = [...new Set(ps.map(p => p.day))];
   let h = `<div class="big-total">${fmtEuro(total)}</div>`;
   if (from === to) {
     const hr = hourlyOf(from);
+    const fuel = db.fuel[from] || 0;
+    if (fuel) h += `<div class="fuel-note">${pumpSvg} Benzina messa: ${fmtEuro(fuel)}</div>`;
     h += `<div class="kpis">
       <div class="kpi"><b>${ps.length}</b><span>pagamenti</span></div>
       <div class="kpi"><b>${fmtEuro(Math.round(hr.perHour))}</b><span>media oraria</span></div>
