@@ -26,7 +26,7 @@ const ROW_H = 38;                 // altezza riga della rotella
 const DURATA_ANNULLA_MS = 4000;  // per quanto resta il popup "Annulla" dopo un inserimento
 
 /* ===================== Dati ===================== */
-const emptyDb = () => ({ v: 1, payments: [], fuel: {}, shifts: {}, lastBackup: null, methods: null, oldMethods: {} });
+const emptyDb = () => ({ v: 1, payments: [], fuel: {}, shifts: {}, lastBackup: null, methods: null, oldMethods: {}, settings: {} });
 function load() {
   let d = null;
   try {
@@ -37,6 +37,7 @@ function load() {
   if (!Array.isArray(d.methods) || !d.methods.length) d.methods = METODI_INIZIALI.map(m => ({ ...m }));
   if (!d.oldMethods || typeof d.oldMethods !== 'object') d.oldMethods = {};
   if (!d.shifts || typeof d.shifts !== 'object') d.shifts = {};
+  if (!d.settings || typeof d.settings !== 'object') d.settings = {};
   return d;
 }
 function save() {
@@ -928,7 +929,7 @@ function renderBackupInfo() {
 }
 $('menuBtn').addEventListener('click', () => { renderBackupInfo(); openSheet($('menuSheet')); });
 $('backupBtn').addEventListener('click', async () => {
-  const data = { app: 'AppConti', v: 1, exportedAt: new Date().toISOString(), payments: db.payments, fuel: db.fuel, shifts: db.shifts, methods: db.methods, oldMethods: db.oldMethods };
+  const data = { app: 'AppConti', v: 1, exportedAt: new Date().toISOString(), payments: db.payments, fuel: db.fuel, shifts: db.shifts, methods: db.methods, oldMethods: db.oldMethods, settings: db.settings };
   const ok = await shareFile(`conti-backup-${todayKey()}.json`, JSON.stringify(data), 'application/json');
   if (ok) { db.lastBackup = Date.now(); save(); renderBackupInfo(); }
 });
@@ -947,6 +948,7 @@ $('restoreInput').addEventListener('change', async e => {
     db.payments = d.payments;
     db.fuel = d.fuel && typeof d.fuel === 'object' ? d.fuel : {};
     db.shifts = d.shifts && typeof d.shifts === 'object' ? d.shifts : {};
+    if (d.settings && typeof d.settings === 'object') { db.settings = d.settings; applySettings(); }
     const validM = Array.isArray(d.methods) && d.methods.length &&
       d.methods.every(m => m && typeof m.nome === 'string' && /^#[0-9a-f]{6}$/i.test(m.colore) && /^#[0-9a-f]{6}$/i.test(m.bordo));
     if (validM) db.methods = d.methods.map(m => ({ nome: m.nome, colore: m.colore, bordo: m.bordo }));
@@ -1079,6 +1081,48 @@ $('openMethods').addEventListener('click', () => {
   renderMethodsSettings();
   openSheet($('methodsSheet'));
 });
+
+/* ===================== Impostazioni: sfondo ===================== */
+// Sfondi scuri, così le scritte bianche restano leggibili.
+// Per una foto: { id, nome, foto: 'bg/nomefile.jpg' } (viene scurita un po' in automatico).
+const SFONDI = [
+  { id: 'nero', nome: 'Nero', css: '#000' },
+  { id: 'notte', nome: 'Notte', css: 'linear-gradient(165deg, #0a1030 0%, #16275c 45%, #050816 100%)' },
+  { id: 'aurora', nome: 'Aurora', css: 'radial-gradient(120% 70% at 15% 0%, #0d5a4a 0%, rgba(13,90,74,0) 60%), radial-gradient(110% 70% at 100% 35%, #2b1a63 0%, rgba(43,26,99,0) 60%), #04070a' },
+  { id: 'tramonto', nome: 'Tramonto', css: 'linear-gradient(175deg, #140818 0%, #3d1233 40%, #7a2a2a 75%, #2a0c0c 100%)' },
+  { id: 'oceano', nome: 'Oceano', css: 'linear-gradient(180deg, #021a2a 0%, #064560 50%, #01101a 100%)' },
+  { id: 'viola', nome: 'Viola', css: 'radial-gradient(130% 80% at 30% 10%, #43207a 0%, #1a0b36 50%, #050209 100%)' },
+  { id: 'ambra', nome: 'Ambra', css: 'radial-gradient(120% 70% at 85% 0%, #5c4200 0%, #1f1600 50%, #000 100%)' },
+  { id: 'grafite', nome: 'Grafite', css: 'linear-gradient(160deg, #2a2a2e 0%, #161618 50%, #0a0a0b 100%)' },
+  { id: 'bosco', nome: 'Bosco', css: 'linear-gradient(170deg, #06140c 0%, #0f3a22 50%, #030805 100%)' },
+];
+const bgCss = s => s.foto
+  ? `linear-gradient(rgba(0,0,0,.35), rgba(0,0,0,.55)), url("${s.foto}") center / cover no-repeat`
+  : s.css;
+function applySettings() {
+  const s = SFONDI.find(x => x.id === db.settings.sfondo) || SFONDI[0];
+  $('bgLayer').style.background = bgCss(s);
+}
+function renderSettings() {
+  const cur = db.settings.sfondo || 'nero';
+  $('bgGrid').innerHTML = SFONDI.map(s => `
+    <button class="bg-tile ${s.id === cur ? 'on' : ''}" data-bg="${s.id}">
+      <span class="prev" style='background:${bgCss(s)}'></span>${esc(s.nome)}</button>`).join('');
+}
+$('bgGrid').addEventListener('click', e => {
+  const t = e.target.closest('[data-bg]');
+  if (!t) return;
+  db.settings.sfondo = t.dataset.bg;
+  save();
+  applySettings();
+  renderSettings();
+});
+$('openSettings').addEventListener('click', () => {
+  closeSheet($('menuSheet'));
+  renderSettings();
+  openSheet($('settingsSheet'));
+});
+applySettings();
 
 /* ===================== Render generale ===================== */
 function renderAll(focusId) {

@@ -109,8 +109,8 @@ svg { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2
   transition: color .2s;
 }
 .amount .cur { font-size: .36em; font-weight: 600; color: var(--muted); letter-spacing: 0; }
-.amount.zero { color: #3a3a3c; }
-.amount.zero .cur { color: #3a3a3c; }
+.amount.zero { color: rgba(255,255,255,.2); }
+.amount.zero .cur { color: rgba(255,255,255,.2); }
 
 /* Rotella pagamenti (stile sveglia iPhone), in basso a destra come nello schizzo */
 .wheel-row { position: absolute; right: 0; bottom: 0; width: 116px; height: 160px; }
@@ -304,6 +304,23 @@ input[type=date], input[type=time] {
 .swatch.on { box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--text); }
 .custom-color { display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; flex: none; }
 .custom-color input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; }
+
+/* Sfondo della schermata (scelto in Impostazioni) */
+.bg-layer { position: fixed; inset: 0; z-index: -1; background: #000; transition: background .4s; }
+body { background: transparent; }
+html { background: #000; }
+.bg-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.bg-tile { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.bg-tile .prev {
+  width: 100%; aspect-ratio: 9 / 16; border-radius: 16px; border: 1px solid rgba(255,255,255,.12);
+  position: relative; overflow: hidden; background-size: cover; background-position: center;
+}
+.bg-tile .prev::after { /* mini importo, per vedere come si legge */
+  content: "0,00"; position: absolute; inset: 0; display: grid; place-items: center;
+  font-family: var(--font-num); font-size: 22px; font-weight: 500; color: rgba(255,255,255,.85);
+}
+.bg-tile.on { color: var(--text); }
+.bg-tile.on .prev { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--text); }
 
 /* Finestra di conferma */
 .dialog { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 24px; background: rgba(0,0,0,.6); animation: fade .15s ease-out; }
