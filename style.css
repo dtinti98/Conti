@@ -28,7 +28,7 @@ svg { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2
 #app {
   height: 100%;
   display: flex; flex-direction: column;
-  padding: calc(var(--safe-top) + 12px) 16px calc(var(--safe-bottom) + 12px);
+  padding: calc(var(--safe-top) + 12px) 16px calc(var(--safe-bottom) + 2px);
   position: relative;
   max-width: 520px; margin: 0 auto;
 }
@@ -49,8 +49,9 @@ svg { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2
 }
 .tot-btn span { font-weight: 700; }
 
-.center { flex: 1; display: flex; flex-direction: column; min-height: 0; }
-.amount-area { flex: 1; min-height: 140px; display: flex; align-items: center; justify-content: center; }
+.center { flex: 1; position: relative; display: flex; flex-direction: column; min-height: 0; }
+/* l'importo usa tutto lo spazio centrale; il padding in basso lascia posto alla rotella */
+.amount-area { flex: 1; min-height: 140px; display: flex; align-items: center; justify-content: center; padding-bottom: 40px; }
 .amount {
   font-family: var(--font-num); font-weight: 500; font-size: 128px; line-height: 1;
   font-variant-numeric: tabular-nums; letter-spacing: -.035em; white-space: nowrap;
@@ -62,8 +63,8 @@ svg { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2
 .amount.zero .cur { color: #3a3a3c; }
 
 /* Rotella pagamenti (stile sveglia iPhone), in basso a destra come nello schizzo */
-.wheel-row { height: 190px; flex: none; position: relative; }
-.wheel-wrap { position: absolute; right: -6px; top: 0; width: 92px; height: 190px; }
+.wheel-row { position: absolute; right: 0; bottom: 0; width: 92px; height: 160px; }
+.wheel-wrap { position: absolute; right: -6px; top: 0; width: 92px; height: 160px; }
 .wheel-wrap::before { /* banda di selezione */
   content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 38px; transform: translateY(-50%);
   border-radius: 10px; background: var(--surface-2); pointer-events: none;
@@ -71,7 +72,7 @@ svg { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2
 .wheel {
   position: relative; height: 100%; overflow-y: auto; scroll-snap-type: y mandatory;
   scrollbar-width: none; -webkit-overflow-scrolling: touch;
-  padding: 76px 0; /* (190 - 38) / 2 */
+  padding: 61px 0; /* (160 - 38) / 2 */
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 30%, #000 70%, transparent 100%);
           mask-image: linear-gradient(to bottom, transparent 0, #000 30%, #000 70%, transparent 100%);
 }
@@ -101,7 +102,7 @@ svg { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2
 .methods.has-sel .method-btn.sel { opacity: 1; background: var(--m-bg-strong); }
 .methods.small .method-btn { min-height: 40px; font-size: 13px; }
 
-.confirm-row { height: 84px; display: flex; align-items: center; justify-content: center; position: relative; }
+.confirm-row { height: 76px; display: flex; align-items: center; justify-content: center; position: relative; }
 .confirm-btn {
   width: 62px; height: 62px; border-radius: 50%; display: grid; place-items: center;
   background: var(--text); color: #000; font-size: 30px; transition: opacity .2s, transform .12s, background .2s;
