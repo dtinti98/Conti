@@ -375,32 +375,33 @@ function shiftBtnState() {
   if (viewDay === today && !sh.start) return { mode: 'idle', day: today };
   return { mode: 'done', day: viewDay };
 }
-// Interruttore: pomello verde in alto (▶ inizia), scatta giù rosso (■ finisci), sparisce a turno finito
+// Interruttore: taxi verde in alto (inizia) -> bandierina rossa più in basso (finisci) -> sparisce a turno finito
 let shiftShown, shiftAnimating = false;
 function renderShiftBtn() {
   if (shiftAnimating) return;
   const b = $('shiftBtn'), mode = shiftBtnState().mode;
   const show = mode === 'idle' ? 'go' : mode === 'running' ? 'stop' : null;
   if (show === shiftShown) return;
-  const wasHidden = !shiftShown;
   const firstRender = shiftShown === undefined;
+  const prev = shiftShown;
   shiftShown = show;
   if (!show) { b.hidden = true; b.className = 'shift-switch'; return; }
   b.hidden = false;
-  b.classList.remove('leaving');
-  b.classList.toggle('on', show === 'stop');          // la transizione CSS fa scattare il pomello
-  if (wasHidden && !firstRender) { b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); }
+  // all'apertura dell'app niente animazioni: l'icona è già al suo posto
+  b.className = 'shift-switch' + (show === 'stop' ? ' on' : '') + (firstRender ? ' still' : '');
+  if (!firstRender && show === 'go' && prev !== 'go') { void b.offsetWidth; b.classList.add('pop'); }
   b.setAttribute('aria-label', show === 'go' ? 'Inizia turno' : 'Finisci turno');
 }
 $('shiftBtn').addEventListener('click', () => {
   if (shiftAnimating) return;
   const st = shiftBtnState();
   const b = $('shiftBtn');
+  b.classList.remove('still');
   if (st.mode === 'running') {
     // l'interruttore svanisce, poi viene nascosto
     shiftAnimating = true;
     b.classList.add('leaving');
-    setTimeout(() => { shiftAnimating = false; renderShiftBtn(); }, 320);
+    setTimeout(() => { shiftAnimating = false; renderShiftBtn(); }, 420);
   }
   if (st.mode === 'idle') {
     const now = Date.now(), day = workDayOf(now);
