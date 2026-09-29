@@ -1095,9 +1095,11 @@ const SFONDI = [
   { id: 'ambra', nome: 'Ambra', css: 'radial-gradient(120% 70% at 85% 0%, #5c4200 0%, #1f1600 50%, #000 100%)' },
   { id: 'grafite', nome: 'Grafite', css: 'linear-gradient(160deg, #2a2a2e 0%, #161618 50%, #0a0a0b 100%)' },
   { id: 'bosco', nome: 'Bosco', css: 'linear-gradient(170deg, #06140c 0%, #0f3a22 50%, #030805 100%)' },
+  { id: 'metro', nome: 'Metro', foto: 'bg/metro.jpg', pos: '72% center' },
 ];
+// pos = quale parte della foto tenere al centro sullo schermo verticale
 const bgCss = s => s.foto
-  ? `linear-gradient(rgba(0,0,0,.35), rgba(0,0,0,.55)), url("${s.foto}") center / cover no-repeat`
+  ? `linear-gradient(rgba(0,0,0,.35), rgba(0,0,0,.55)), url("${s.foto}") ${s.pos || 'center'} / cover no-repeat`
   : s.css;
 
 // Foto scelta dalla galleria: salvata a parte, solo su questo telefono (non va nel backup né online)
