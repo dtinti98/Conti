@@ -280,8 +280,13 @@ function renderEntry() {
   const box = $('methods');
   box.classList.toggle('has-sel', !!entry.method);
   box.querySelectorAll('.method-btn').forEach(b => b.classList.toggle('sel', b.dataset.m === entry.method));
-  $('confirmBtn').disabled = !(entry.cents > 0 && entry.method);
+  const ready = !!(entry.cents > 0 && entry.method);
+  $('confirmBtn').disabled = !ready;
+  // appena completi il pagamento successivo, il popup "Annulla" lascia il posto alla spunta
+  if (ready && !entryWasReady && !$('toast').hidden) hideToast();
+  entryWasReady = ready;
 }
+let entryWasReady = false;
 
 function buildMethodButtons(box, onPick) {
   if (onPick) box._onPick = onPick;
@@ -403,7 +408,12 @@ $('shiftBtn').addEventListener('click', () => {
     // l'interruttore svanisce, poi viene nascosto
     shiftAnimating = true;
     b.classList.add('leaving');
-    setTimeout(() => { shiftAnimating = false; renderShiftBtn(); }, 420);
+    setTimeout(() => {
+      shiftAnimating = false;
+      b.classList.remove('leaving');
+      shiftShown = 'anim';            // forza il ridisegno (es. "Annulla" premuto durante l'animazione)
+      renderShiftBtn();
+    }, 420);
   }
   if (st.mode === 'idle') {
     const now = Date.now(), day = workDayOf(now);
@@ -454,9 +464,12 @@ $('shiftSave').addEventListener('click', () => {
   const day = shiftEditDay;
   const s = $('shiftStart').value, e = $('shiftEnd').value;
   const start = s ? tsFromDayTime(day, s) : null;
-  const end = e ? tsFromDayTime(day, e) : null;
+  let end = e ? tsFromDayTime(day, e) : null;
   const ps = paymentsOf(day);
   const realStart = start || (ps.length ? ps[0].ts - MINUTI_PRIMA_CORSA * 60000 : null);
+  // fine scritta dopo le 4 del mattino (es. 20:00 → 05:00): è la mattina dopo
+  // (solo se il turno risultante è plausibile, max 16 ore; altrimenti è un errore di battitura)
+  if (end && realStart && end <= realStart && end + 86400000 - realStart <= 16 * 3600000) end += 86400000;
   const realEnd = end || (ps.length ? ps[ps.length - 1].ts : null);
   if (realStart && realEnd && realEnd <= realStart) {
     return notify('La fine del turno deve essere dopo l\'inizio.');
