@@ -671,8 +671,8 @@ function renderTotSheet() {
   </div>`;
   if (hr) h += `<button class="kpi-note shift-note" id="totShift">
       Turno ${fmtTime(hr.start)} – ${fmtTime(hr.end)}<br>
-      <small>inizio: ${hr.startManual ? 'premuto "Inizia"' : MINUTI_PRIMA_CORSA + ' min prima del primo incasso'} ·
-      fine: ${hr.endManual ? 'premuto "Fine"' : 'ultimo incasso'}</small>
+      <small>inizio: ${hr.startManual ? 'dal taxi' : MINUTI_PRIMA_CORSA + ' min prima del primo incasso'} ·
+      fine: ${hr.endManual ? 'dalla bandierina' : 'ultimo incasso'}</small>
       <span class="edit-link">${penSvg} modifica orari</span></button>`;
   h += `<div class="section-label">Per metodo</div>` + methodBlock(ps);
   h += `<div class="section-label">Pagamenti</div>`;

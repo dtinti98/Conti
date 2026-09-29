@@ -251,7 +251,7 @@ svg { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2
 .prow .val { font-family: var(--font-num); font-weight: 700; font-variant-numeric: tabular-nums; }
 .prow svg { color: var(--muted); }
 .add-btn { width: 100%; margin-top: 14px; }
-.fuel-note { display: flex; justify-content: center; gap: 6px; align-items: center; color: var(--muted); font-size: 14px; }
+.fuel-note { display: flex; justify-content: center; gap: 6px; align-items: center; color: var(--danger); font-size: 14px; font-weight: 600; }
 .fuel-note svg { font-size: 16px; }
 .chart { width: 100%; height: auto; display: block; margin-top: 4px; stroke: none; }
 .chart text { fill: #aeaeb2; stroke: none; font-size: 12px; font-weight: 600; font-family: var(--font); font-variant-numeric: tabular-nums; }
