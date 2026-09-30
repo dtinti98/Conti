@@ -155,9 +155,7 @@
   <button class="menu-item" id="openExport">Esporta (CSV / Markdown)</button>
   <button class="menu-item" id="openMethods">Metodi di pagamento</button>
   <button class="menu-item" id="openSettings">Sfondi</button>
-  <button class="menu-item toggle-item" id="xlToggle" role="switch" aria-checked="false">
-    <span>Macchina XL <small class="muted">corse da 5 e 6 persone</small></span><span class="switch"></span>
-  </button>
+  <button class="menu-item" id="openPrefs">Impostazioni</button>
   <div class="menu-sep">Backup</div>
   <button class="menu-item" id="backupBtn">Salva backup</button>
   <button class="menu-item" id="restoreBtn">Ripristina backup</button>
@@ -223,7 +221,19 @@
   <p class="muted small-text mura-note">La posizione viene usata solo sul telefono, non viene inviata a nessuno. Zona dalla mappa "Tariffe Fisse Comune di Roma".</p>
 </section>
 
-<!-- Impostazioni (personalizzazione schermata) -->
+<!-- Impostazioni: opzioni sì/no -->
+<section id="prefsSheet" class="sheet">
+  <div class="sheet-grip"></div>
+  <div class="sheet-title">Impostazioni</div>
+  <button class="menu-item toggle-item" data-setting="xl" role="switch" aria-checked="false">
+    <span>Macchina XL <small class="muted">Segna le corse da 5 e 6 persone e le conta nelle statistiche.</small></span><span class="switch"></span>
+  </button>
+  <button class="menu-item toggle-item" data-setting="liveAvg" role="switch" aria-checked="false">
+    <span>Media oraria effettiva <small class="muted">A turno in corso la media oraria arriva fino ad adesso, non all'ultima corsa. Quando chiudi il turno o finisce la giornata tornano le regole normali.</small></span><span class="switch"></span>
+  </button>
+</section>
+
+<!-- Sfondi (personalizzazione schermata) -->
 <section id="settingsSheet" class="sheet tall">
   <div class="sheet-grip"></div>
   <div class="sheet-title">Sfondi</div>

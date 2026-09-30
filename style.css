@@ -377,7 +377,8 @@ html { background: #000; }
 
 /* Interruttore sì/no nel menu */
 .toggle-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.toggle-item small { display: block; font-size: 12px; font-weight: 500; margin-top: 2px; }
+.toggle-item small { display: block; font-size: 12px; font-weight: 500; margin-top: 3px; line-height: 1.35; }
+.shift-times .st.live { color: var(--muted); }
 .switch { width: 51px; height: 31px; border-radius: 999px; background: #3a3a3c; position: relative; flex: none; transition: background .2s; }
 .switch::after {
   content: ""; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%;

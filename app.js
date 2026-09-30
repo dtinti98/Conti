@@ -141,10 +141,13 @@ function hourlyOf(day) {
   const manualStart = sh.start && !sh.auto;
   // il turno comprende sempre tutte le corse (es. taxi premuto in ritardo)
   const start = manualStart ? Math.min(sh.start, first) : first - MINUTI_PRIMA_CORSA * 60000;
-  const end = sh.end ? Math.max(sh.end, last) : last;
+  // "Media oraria effettiva" (Impostazioni): a turno in corso la fine è adesso;
+  // a turno chiuso o a giornata finita valgono le regole normali
+  const live = !!db.settings.liveAvg && day === todayKey() && openShiftDay() === day;
+  const end = live ? Math.max(Date.now(), last) : sh.end ? Math.max(sh.end, last) : last;
   const hours = Math.max((end - start) / 3600000, 1 / 60);
   // "manuale" solo se l'orario usato è davvero quello premuto (non allargato dalle corse)
-  return { start, end, hours, startManual: !!manualStart && sh.start <= first, endManual: !!sh.end && sh.end >= last, perHour: sum(ps) / hours };
+  return { start, end, hours, live, startManual: !!manualStart && sh.start <= first, endManual: !live && !!sh.end && sh.end >= last, perHour: sum(ps) / hours };
 }
 // Turno iniziato e non ancora finito (anche se nel frattempo sono passate le 4:00)
 function openShiftDay() {
@@ -769,7 +772,9 @@ function renderTotSheet() {
   if (hr) h += `<button class="shift-note" id="totShift">
       <span class="shift-times">
         <span class="st go">Inizio ${fmtTime(hr.start)} ${hr.startManual ? taxiSvg : clockLineSvg}</span>
-        <span class="st stop">Fine ${fmtTime(hr.end)} ${hr.endManual ? flagSvg : clockLineSvg}</span>
+        ${hr.live
+          ? '<span class="st stop live">Fine …</span>'   // turno in corso: la fine non c'è ancora
+          : `<span class="st stop">Fine ${fmtTime(hr.end)} ${hr.endManual ? flagSvg : clockLineSvg}</span>`}
       </span>
       <span class="edit-link">${penSvg} modifica orari</span></button>`;
   h += `<div class="section-label">Per metodo</div>` + methodBlock(ps);
@@ -1374,19 +1379,29 @@ $('photoInput').addEventListener('change', async e => {
     notify(err.message === 'immagine' ? 'Non riesco ad aprire questa immagine.' : 'La foto è troppo grande da salvare sul telefono.');
   }
 });
-// Menu → Macchina XL (sì/no)
-function renderXlToggle() {
-  $('xlToggle').classList.toggle('on', xlOn());
-  $('xlToggle').setAttribute('aria-checked', String(xlOn()));
+// Menu → Impostazioni: interruttori sì/no (data-setting = chiave in db.settings)
+function renderToggles() {
+  document.querySelectorAll('#prefsSheet [data-setting]').forEach(t => {
+    const on = !!db.settings[t.dataset.setting];
+    t.classList.toggle('on', on);
+    t.setAttribute('aria-checked', String(on));
+  });
 }
-$('xlToggle').addEventListener('click', () => {
-  db.settings.xl = !xlOn();
-  if (!db.settings.xl) entry.pax = null;
+$('prefsSheet').addEventListener('click', e => {
+  const t = e.target.closest('[data-setting]');
+  if (!t) return;
+  const key = t.dataset.setting;
+  db.settings[key] = !db.settings[key];
+  if (key === 'xl' && !db.settings.xl) entry.pax = null;
   save();
-  renderXlToggle();
+  renderToggles();
   renderAll();
 });
-$('menuBtn').addEventListener('click', renderXlToggle);
+$('openPrefs').addEventListener('click', () => {
+  closeSheet($('menuSheet'));
+  renderToggles();
+  openSheet($('prefsSheet'));
+});
 
 $('openSettings').addEventListener('click', () => {
   closeSheet($('menuSheet'));
@@ -1412,8 +1427,13 @@ function checkDayChange() {
     if (viewDay === lastToday) viewDay = t;
     lastToday = t;
     renderAll();
-  } else if ($('totSheet').classList.contains('open') && viewDay === t) {
-    renderTotSheet(); // aggiorna la media oraria
+  } else {
+    // con "Media oraria effettiva" la media cambia col passare del tempo: aggiorna ciò che è aperto
+    if ($('totSheet').classList.contains('open') && viewDay === t) renderTotSheet();
+    if (db.settings.liveAvg && $('statsSheet').classList.contains('open')) {
+      const [f, to] = statsPicker.range();
+      if (t >= f && t <= to) renderStats();
+    }
   }
 }
 setInterval(checkDayChange, 30000);
