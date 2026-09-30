@@ -1,6 +1,6 @@
 // Service worker: rende l'app utilizzabile anche senza internet.
 // Quando modifichi i file dell'app, aumenta VERSION così il telefono scarica la nuova versione.
-const VERSION = 'conti-v17';
+const VERSION = 'conti-v18';
 const FILES = ['./', 'index.html', 'style.css', 'app.js', 'manifest.webmanifest', 'icon-180.png', 'icon-512.png', 'bg/metro.jpg', 'zona-mura.js'];
 
 self.addEventListener('install', e => {

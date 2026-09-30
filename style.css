@@ -29,7 +29,8 @@ svg { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2
   height: 100%;
   display: flex; flex-direction: column;
   /* più spazio in alto: le icone restano sotto la barra di stato / Dynamic Island dell'iPhone */
-  padding: calc(max(var(--safe-top), 20px) + 12px) 16px calc(var(--safe-bottom) + 2px);
+  /* in basso si scende un po' dentro la zona della barretta Home, così pulsanti e rotella stanno più giù */
+  padding: calc(max(var(--safe-top), 20px) + 12px) 16px max(calc(var(--safe-bottom) - 12px), 8px);
   position: relative;
   max-width: 520px; margin: 0 auto;
 }
@@ -177,7 +178,7 @@ svg { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2
 .methods.has-sel .method-btn.sel { opacity: 1; background: var(--m-bg-strong); }
 .methods.small .method-btn { min-height: 40px; font-size: 13px; }
 
-.confirm-row { height: 76px; display: flex; align-items: center; justify-content: center; position: relative; }
+.confirm-row { height: 70px; display: flex; align-items: center; justify-content: center; position: relative; }
 .confirm-btn {
   width: 62px; height: 62px; border-radius: 50%; display: grid; place-items: center;
   background: var(--text); color: #000; font-size: 30px; transition: opacity .2s, transform .12s, background .2s;
@@ -186,7 +187,7 @@ svg { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2
 .confirm-btn:disabled { background: var(--surface-2); color: #48484a; }
 .confirm-btn:not(:disabled):active { transform: scale(.94); }
 .toast {
-  position: absolute; top: 12px; bottom: 12px; left: 0; right: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  position: absolute; top: 12px; bottom: 6px; left: 0; right: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px;
   padding: 0 8px 0 18px; border-radius: 99px;
   /* vetro smerigliato semitrasparente, come i popup di iOS */
   background: rgba(58,58,60,.45);
