@@ -784,8 +784,8 @@ function renderTotSheet() {
     return `<button class="prow" data-id="${p.id}"><span class="time">${fmtTime(p.ts)}</span>
       <i class="dot" style="background:${m.bordo}"></i><span>${esc(p.method)} ${paxTag(p)}</span>
       <span class="val">${fmtEuro(p.cents)}</span>${penSvg}</button>`;
-  }).join('') : `<div class="empty-msg">Nessun pagamento</div>`;
-  h += `<button class="secondary-btn add-btn" id="totAdd">+ Aggiungi pagamento</button>`;
+  }).join('') : `<div class="empty-msg">${xlOn() ? 'Nessuna corsa' : 'Nessun pagamento'}</div>`;
+  h += `<button class="secondary-btn add-btn" id="totAdd">+ Aggiungi ${xlOn() ? 'corsa' : 'pagamento'}</button>`;
   $('totSheetBody').innerHTML = h;
 }
 $('totSheetBody').addEventListener('click', e => {
