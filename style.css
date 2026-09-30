@@ -46,7 +46,7 @@ svg { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2
 /* Interruttore del turno con "binario" invisibile, icone a linea come la pompa:
    taxi verde in alto (inizia) -> parte e sparisce, compare la bandierina rossa più in basso (finisci) */
 .shift-switch {
-  position: absolute; left: -4px; top: -4px; width: 44px; height: 80px;
+  position: absolute; left: -10px; top: -4px; width: 44px; height: 80px;   /* icone allineate al menu ≡ */
   z-index: 5;                       /* sopra l'area centrale, così è sempre toccabile */
   pointer-events: none;             /* toccabile solo l'icona visibile */
   transition: opacity .25s;

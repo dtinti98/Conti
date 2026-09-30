@@ -211,23 +211,36 @@ function closeSheet(el = stack[stack.length - 1]) {
 }
 backdrop.addEventListener('click', () => closeSheet());
 
-// Trascina verso il basso per chiudere
+// Trascina verso il basso da qualsiasi punto per chiudere.
+// Se dentro c'è un elenco già scorso, prima risale l'elenco e solo in cima scende la tendina.
 document.querySelectorAll('.sheet').forEach(sheet => {
-  let y0 = null, dy = 0;
+  let y0 = null, x0 = 0, t0 = 0, dy = 0, dragging = false, scroller = null;
   sheet.addEventListener('touchstart', e => {
-    if (!e.target.closest('.sheet-grip, .sheet-title, .keypad-head, .cal-head')) return;
-    y0 = e.touches[0].clientY; dy = 0; sheet.style.transition = 'none';
+    if (e.touches.length !== 1 || e.target.closest('input, select, textarea, .export-preview')) { y0 = null; return; }
+    y0 = e.touches[0].clientY; x0 = e.touches[0].clientX; t0 = Date.now(); dy = 0; dragging = false;
+    scroller = e.target.closest('.sheet-scroll');
   }, { passive: true });
   sheet.addEventListener('touchmove', e => {
     if (y0 === null) return;
+    const d = e.touches[0].clientY - y0, dx = Math.abs(e.touches[0].clientX - x0);
+    if (!dragging) {
+      if (Math.abs(d) < 8 && dx < 8) return;
+      // si trascina solo verso il basso, in verticale, e con l'elenco già in cima
+      if (d <= 0 || dx > Math.abs(d) || (scroller && scroller.scrollTop > 0)) { y0 = null; return; }
+      dragging = true; y0 = e.touches[0].clientY; sheet.style.transition = 'none';
+    }
     dy = Math.max(0, e.touches[0].clientY - y0);
     sheet.style.transform = `translateY(${dy}px)`;
-  }, { passive: true });
-  sheet.addEventListener('touchend', () => {
-    if (y0 === null) return;
-    y0 = null; sheet.style.transition = '';
-    if (dy > 90) closeSheet(sheet); else sheet.style.transform = '';
-  });
+    if (e.cancelable) e.preventDefault();         // niente rimbalzo dell'elenco mentre si trascina
+  }, { passive: false });
+  const end = () => {
+    if (!dragging) { y0 = null; return; }
+    const fast = dy / Math.max(1, Date.now() - t0) > 0.5;   // gesto veloce verso il basso
+    y0 = null; dragging = false; sheet.style.transition = '';
+    if (dy > 90 || (fast && dy > 30)) closeSheet(sheet); else sheet.style.transform = '';
+  };
+  sheet.addEventListener('touchend', end);
+  sheet.addEventListener('touchcancel', end);
 });
 
 /* ===================== Tastierino (stile POS) ===================== */
