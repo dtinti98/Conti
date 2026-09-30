@@ -65,6 +65,13 @@ svg { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2
 .shift-switch.leaving .k-stop { animation: wave-off .4s ease-in both; }
 .shift-switch.pop:not(.on) .k-go { animation: drop-in .45s cubic-bezier(.3,1.6,.5,1) both; }
 .k-stop { transform-origin: 30% 85%; }
+/* turno finito: freccia arancione in alto per riprenderlo */
+.k-resume { top: 0; color: #ff9f0a; opacity: 0; pointer-events: none; }
+.shift-switch.resume .k-go { opacity: 0; pointer-events: none; animation: none; }
+.shift-switch.resume .k-resume { animation: drop-in .45s cubic-bezier(.3,1.6,.5,1) both; pointer-events: auto; }
+.shift-switch.still.resume .k-resume { opacity: 1; }
+/* ripreso il turno: la bandierina ricompare senza far "ripartire" il taxi */
+.shift-switch.on.no-go .k-go { animation: none; opacity: 0; }
 .shift-switch.still .knob { animation: none !important; }
 .shift-switch.still.on .k-go { opacity: 0; }
 .shift-switch.still.on .k-stop { opacity: 1; }

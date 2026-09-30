@@ -400,14 +400,18 @@ function shiftBtnState() {
   if (open && (viewDay === today || viewDay === open)) return { mode: 'running', day: open };
   const sh = shiftOf(viewDay);
   if (viewDay === today && !sh.start) return { mode: 'idle', day: today };
+  // turno di oggi finito: si può riprendere (fino al cambio giornata delle 4:00)
+  if (viewDay === today && sh.start && sh.end) return { mode: 'ended', day: today };
   return { mode: 'done', day: viewDay };
 }
-// Interruttore: taxi verde in alto (inizia) -> bandierina rossa più in basso (finisci) -> sparisce a turno finito
+// Interruttore: taxi verde in alto (inizia) -> bandierina rossa più in basso (finisci)
+// -> freccia arancione in alto (riprendi) -> di nuovo bandierina
 let shiftShown, shiftAnimating = false;
+const SHIFT_ICON = { idle: 'go', running: 'stop', ended: 'resume' };
 function renderShiftBtn() {
   if (shiftAnimating) return;
   const b = $('shiftBtn'), mode = shiftBtnState().mode;
-  const show = mode === 'idle' ? 'go' : mode === 'running' ? 'stop' : null;
+  const show = SHIFT_ICON[mode] || null;
   if (show === shiftShown) return;
   const firstRender = shiftShown === undefined;
   const prev = shiftShown;
@@ -415,9 +419,12 @@ function renderShiftBtn() {
   if (!show) { b.hidden = true; b.className = 'shift-switch'; return; }
   b.hidden = false;
   // all'apertura dell'app niente animazioni: l'icona è già al suo posto
-  b.className = 'shift-switch' + (show === 'stop' ? ' on' : '') + (firstRender ? ' still' : '');
+  b.className = 'shift-switch'
+    + (show === 'stop' ? ' on' : show === 'resume' ? ' resume' : '')
+    + (show === 'stop' && prev === 'resume' ? ' no-go' : '')   // ripreso: niente taxi che riparte
+    + (firstRender ? ' still' : '');
   if (!firstRender && show === 'go' && prev !== 'go') { void b.offsetWidth; b.classList.add('pop'); }
-  b.setAttribute('aria-label', show === 'go' ? 'Inizia turno' : 'Finisci turno');
+  b.setAttribute('aria-label', { go: 'Inizia turno', stop: 'Finisci turno', resume: 'Riprendi turno' }[show]);
 }
 $('shiftBtn').addEventListener('click', () => {
   if (shiftAnimating) return;
@@ -452,6 +459,16 @@ $('shiftBtn').addEventListener('click', () => {
     save();
     showToast(`Turno finito · ${fmtHours((now - db.shifts[day].start) / 3600000)}`, () => {
       delete db.shifts[day].end;
+      save();
+    });
+    renderAll();
+  } else if (st.mode === 'ended') {
+    // riprendi: si cancella la fine, l'inizio resta quello di prima
+    const day = st.day, oldEnd = db.shifts[day].end;
+    delete db.shifts[day].end;
+    save();
+    showToast('Turno ripreso', () => {
+      db.shifts[day].end = oldEnd;
       save();
     });
     renderAll();
