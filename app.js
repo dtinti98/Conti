@@ -253,8 +253,20 @@ function openKeypad(opts) {
   openSheet($('keypadSheet'), { dim: opts.dim !== false });
 }
 function updateKeypadPreview() {
-  if (kp) $('keypadPreview').textContent = kp.euro ? fmtEuro(kp.get()) : `${fmtCents(kp.get())} €`;
+  if (!kp) return;
+  $('keypadPreview').textContent = kp.euro ? fmtEuro(kp.get()) : `${fmtCents(kp.get())} €`;
+  // linguette 5/6 persone: solo con "Macchina XL" attiva e solo per l'importo di una corsa
+  const tabs = $('paxTabs'), show = !!(kp.pax && xlOn());
+  tabs.hidden = !show;
+  if (show) tabs.querySelectorAll('[data-pax]').forEach(t => t.classList.toggle('on', Number(t.dataset.pax) === kp.pax.get()));
 }
+$('paxTabs').addEventListener('click', e => {
+  const t = e.target.closest('[data-pax]');
+  if (!t || !kp || !kp.pax) return;
+  const n = Number(t.dataset.pax);
+  kp.pax.set(kp.pax.get() === n ? null : n);        // ritoccare la stessa linguetta la toglie
+  updateKeypadPreview();
+});
 document.querySelectorAll('.keypad button').forEach(b => b.addEventListener('click', () => {
   if (!kp) return;
   const k = b.dataset.k;
@@ -292,6 +304,11 @@ function renderEntry() {
   const w = a.scrollWidth;
   if (w > avail) a.style.fontSize = Math.max(40, Math.floor(base * avail / w)) + 'px';
 
+  // promemoria 5/6 persone accanto all'importo (solo Macchina XL)
+  const pax = xlOn() && entry.pax;
+  $('amountPax').hidden = !pax;
+  if (pax) $('amountPax').innerHTML = `${pax}${personSvg}`;
+
   const box = $('methods');
   box.classList.toggle('has-sel', !!entry.method);
   box.querySelectorAll('.method-btn').forEach(b => b.classList.toggle('sel', b.dataset.m === entry.method));
@@ -327,6 +344,7 @@ $('amountBtn').addEventListener('click', () => openKeypad({
   title: 'Importo', dim: false,
   get: () => entry.cents,
   set: v => { entry.cents = v; renderEntry(); },
+  pax: { get: () => entry.pax || null, set: v => { entry.pax = v; renderEntry(); } },
 }));
 
 $('fuelBtn').addEventListener('click', () => openKeypad({
@@ -341,21 +359,22 @@ let toastTimer = null, toastUndo = null;
 $('confirmBtn').addEventListener('click', () => {
   if (!(entry.cents > 0 && entry.method)) return;
   if (viewDay !== todayKey()) {        // giorno passato: chiedi l'orario
-    openEdit(null, { day: viewDay, cents: entry.cents, method: entry.method, fromEntry: true });
+    openEdit(null, { day: viewDay, cents: entry.cents, method: entry.method, pax: entry.pax, fromEntry: true });
     return;
   }
   const now = Date.now();
   const p = { id: uid(), cents: entry.cents, method: entry.method, ts: now, day: workDayOf(now) };
+  if (xlOn() && entry.pax) p.pax = entry.pax;          // corsa da 5 o 6 persone (Macchina XL)
   // prima corsa senza aver premuto il taxi: il turno parte da solo (inizio = 20 min prima)
   const autoShift = shiftBtnState().mode === 'idle';
   if (autoShift) db.shifts[p.day] = { start: now - MINUTI_PRIMA_CORSA * 60000, auto: true };
   db.payments.push(p); save();
   entry = { cents: 0, method: null };
-  showToast(`${fmtEuro(p.cents)} · ${p.method}${autoShift ? ' · turno avviato' : ''}`, () => {
+  showToast(`${fmtEuro(p.cents)} · ${p.method}${p.pax ? ` · ${p.pax} pers.` : ''}${autoShift ? ' · turno avviato' : ''}`, () => {
     db.payments = db.payments.filter(x => x.id !== p.id);
     if (autoShift) delete db.shifts[p.day];         // annullando la corsa si annulla anche l'avvio
     save();
-    entry = { cents: p.cents, method: p.method };   // torna l'importo e il metodo per correggere
+    entry = { cents: p.cents, method: p.method, pax: p.pax || null };   // torna tutto com'era per correggere
   });
   renderAll(p.id);
 });
@@ -578,11 +597,11 @@ function openEdit(id, preset) {
   if (id) {
     const p = db.payments.find(x => x.id === id);
     if (!p) return;
-    ed = { id, day: p.day, cents: p.cents, method: p.method, time: fmtTime(p.ts) };
+    ed = { id, day: p.day, cents: p.cents, method: p.method, pax: p.pax || null, time: fmtTime(p.ts) };
   } else {
     const ps = paymentsOf(preset.day);
     const time = preset.day === todayKey() ? fmtTime(Date.now()) : (ps.length ? fmtTime(ps[ps.length - 1].ts) : '21:00');
-    ed = { id: null, day: preset.day, cents: preset.cents || 0, method: preset.method || null, time, fromEntry: !!preset.fromEntry };
+    ed = { id: null, day: preset.day, cents: preset.cents || 0, method: preset.method || null, pax: preset.pax || null, time, fromEntry: !!preset.fromEntry };
   }
   $('editTitle').textContent = (ed.id ? 'Modifica pagamento' : 'Nuovo pagamento') + ' · ' + fmtDate(ed.day);
   $('editDelete').textContent = ed.id ? 'Elimina' : 'Annulla';
@@ -591,7 +610,8 @@ function openEdit(id, preset) {
   openSheet($('editSheet'));
 }
 function renderEdit() {
-  $('editAmount').textContent = `${fmtCents(ed.cents)} €`;
+  $('editAmount').innerHTML = `${fmtCents(ed.cents)} €` +
+    (xlOn() && ed.pax ? ` <span class="pax-badge">${ed.pax}${personSvg}</span>` : '');
   const box = $('editMethods');
   box.classList.toggle('has-sel', !!ed.method);
   box.querySelectorAll('.method-btn').forEach(b => b.classList.toggle('sel', b.dataset.m === ed.method));
@@ -602,6 +622,7 @@ $('editAmount').addEventListener('click', () => openKeypad({
   title: 'Importo',
   get: () => ed.cents,
   set: v => { ed.cents = v; renderEdit(); },
+  pax: { get: () => ed.pax || null, set: v => { ed.pax = v; renderEdit(); } },
 }));
 $('editTime').addEventListener('change', e => { if (ed && e.target.value) ed.time = e.target.value; });
 $('editSave').addEventListener('click', () => {
@@ -611,9 +632,11 @@ $('editSave').addEventListener('click', () => {
   if (ed.id) {
     const p = db.payments.find(x => x.id === ed.id);
     Object.assign(p, { cents: ed.cents, method: ed.method, ts, day: workDayOf(ts) });
+    if (xlOn()) { if (ed.pax) p.pax = ed.pax; else delete p.pax; }   // con XL spenta il dato resta com'era
     focus = p.id;
   } else {
     const p = { id: uid(), cents: ed.cents, method: ed.method, ts, day: workDayOf(ts) };
+    if (xlOn() && ed.pax) p.pax = ed.pax;
     db.payments.push(p); focus = p.id;
     if (ed.fromEntry) entry = { cents: 0, method: null };
   }
@@ -711,6 +734,22 @@ const flagSvg = '<svg viewBox="0 0 24 24"><path d="M6 21V3.5"/><path d="M6 4.5c2
 const clockLineSvg = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>';
 const pumpSvg = '<svg viewBox="0 0 24 24"><path d="M4 21V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v16M3 21h13M7 7h5M15 10h2a2 2 0 0 1 2 2v5a1.5 1.5 0 0 0 3 0V9l-3-3"/></svg>';
 
+/* ----- Macchina XL: corse da 5 o 6 persone ----- */
+const xlOn = () => !!db.settings.xl;
+// omino stile profilo dei social
+const personSvg = '<svg class="person" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.8"/><path d="M4.5 20.5a7.5 7.5 0 0 1 15 0"/></svg>';
+// con Macchina XL "pagamenti" si chiamano "corse"
+const labelCorse = () => (xlOn() ? 'corse' : 'pagamenti');
+// caselle con il numero di corse da 5 e da 6 persone
+function paxKpis(ps) {
+  if (!xlOn()) return '';
+  const n5 = ps.filter(p => p.pax === 5).length, n6 = ps.filter(p => p.pax === 6).length;
+  return `<div class="kpis two">
+    <div class="kpi"><b>${n5}</b><span>da 5 ${personSvg}</span></div>
+    <div class="kpi"><b>${n6}</b><span>da 6 ${personSvg}</span></div></div>`;
+}
+const paxTag = p => (xlOn() && p.pax ? `<span class="pax-badge">${p.pax}${personSvg}</span>` : '');
+
 /* ===================== Riepilogo giornata (TOT) ===================== */
 function renderTotSheet() {
   const ps = paymentsOf(viewDay);
@@ -721,10 +760,10 @@ function renderTotSheet() {
   let h = `<div class="big-total">${fmtEuro(total)}</div>`;
   if (fuel) h += `<div class="fuel-note">${pumpSvg} Benzina messa: ${fmtEuro(fuel)}</div>`;
   h += `<div class="kpis">
-    <div class="kpi"><b>${ps.length}</b><span>pagamenti</span></div>
+    <div class="kpi"><b>${ps.length}</b><span>${labelCorse()}</span></div>
     <div class="kpi"><b>${hr ? fmtEuro(Math.round(hr.perHour)) : '—'}</b><span>media oraria</span></div>
     <div class="kpi"><b>${hr ? fmtHours(hr.hours) : '—'}</b><span>ore</span></div>
-  </div>`;
+  </div>` + paxKpis(ps);
   // Inizio/fine con la stessa icona dello schermo principale (taxi / bandierina);
   // orologio se l'orario è calcolato in automatico
   if (hr) h += `<button class="shift-note" id="totShift">
@@ -734,11 +773,11 @@ function renderTotSheet() {
       </span>
       <span class="edit-link">${penSvg} modifica orari</span></button>`;
   h += `<div class="section-label">Per metodo</div>` + methodBlock(ps);
-  h += `<div class="section-label">Pagamenti</div>`;
+  h += `<div class="section-label">${xlOn() ? 'Corse' : 'Pagamenti'}</div>`;
   h += ps.length ? ps.slice().reverse().map(p => {
     const m = methodInfo(p.method);
     return `<button class="prow" data-id="${p.id}"><span class="time">${fmtTime(p.ts)}</span>
-      <i class="dot" style="background:${m.bordo}"></i><span>${esc(p.method)}</span>
+      <i class="dot" style="background:${m.bordo}"></i><span>${esc(p.method)} ${paxTag(p)}</span>
       <span class="val">${fmtEuro(p.cents)}</span>${penSvg}</button>`;
   }).join('') : `<div class="empty-msg">Nessun pagamento</div>`;
   h += `<button class="secondary-btn add-btn" id="totAdd">+ Aggiungi pagamento</button>`;
@@ -859,9 +898,9 @@ function renderStats() {
     const fuel = db.fuel[from] || 0;
     if (fuel) h += `<div class="fuel-note">${pumpSvg} Benzina messa: ${fmtEuro(fuel)}</div>`;
     h += `<div class="kpis">
-      <div class="kpi"><b>${ps.length}</b><span>pagamenti</span></div>
+      <div class="kpi"><b>${ps.length}</b><span>${labelCorse()}</span></div>
       <div class="kpi"><b>${fmtEuro(Math.round(hr.perHour))}</b><span>media oraria</span></div>
-      <div class="kpi"><b>${fmtHours(hr.hours)}</b><span>ore</span></div></div>`;
+      <div class="kpi"><b>${fmtHours(hr.hours)}</b><span>ore</span></div></div>` + paxKpis(ps);
   } else {
     const hours = workedDays.reduce((s, d) => s + hourlyOf(d).hours, 0);
     const dayTotals = workedDays.map(d => ({ d, c: sum(ps.filter(p => p.day === d)) }));
@@ -872,9 +911,9 @@ function renderStats() {
       <div class="kpi"><b>${workedDays.length}</b><span>giorni lavorati</span></div>
       <div class="kpi"><b>${fmtEuro(Math.round(total / workedDays.length))}</b><span>media al giorno</span></div>
       <div class="kpi"><b>${fmtEuro(Math.round(total / hours))}</b><span>media oraria</span></div>
-      <div class="kpi"><b>${ps.length}</b><span>pagamenti</span></div>
+      <div class="kpi"><b>${ps.length}</b><span>${labelCorse()}</span></div>
       <div class="kpi"><b>${fmtEuro(best.c)}</b><span>miglior giorno (${fmtDate(best.d).slice(0, 5)})</span></div>
-      <div class="kpi"><b>${fuel ? fmtEuro(fuel) : '—'}</b><span>benzina</span></div></div>`;
+      <div class="kpi"><b>${fuel ? fmtEuro(fuel) : '—'}</b><span>benzina</span></div></div>` + paxKpis(ps);
     h += `<div class="section-label">Andamento</div>` + barChart(from, to, ps, (body.clientWidth || 358) - 32);
   }
   h += `<div class="section-label">Per metodo</div>` + donut(ps) + methodBlock(ps);
@@ -906,9 +945,11 @@ function exportTable() {
   const [from, to] = exportPicker.range();
   const ps = paymentsBetween(from, to);
   if (exp.kind === 'all') {
-    const rows = ps.map(p => [fmtDateFull(p.day), fmtTime(p.ts), p.method, plainNum(p.cents)]);
-    rows.push(['Totale', '', '', plainNum(sum(ps))]);
-    return { head: ['Data', 'Ora', 'Metodo', 'Importo'], rows };
+    // con Macchina XL c'è anche la colonna Persone (5 o 6; vuota = corsa normale)
+    const xl = xlOn();
+    const rows = ps.map(p => [fmtDateFull(p.day), fmtTime(p.ts), p.method, plainNum(p.cents), ...(xl ? [p.pax ? String(p.pax) : ''] : [])]);
+    rows.push(['Totale', '', '', plainNum(sum(ps)), ...(xl ? [''] : [])]);
+    return { head: ['Data', 'Ora', 'Metodo', 'Importo', ...(xl ? ['Persone'] : [])], rows };
   }
   const names = byMethod(ps).filter(m => m.cents > 0 || metodi().some(x => x.nome === m.nome)).map(m => m.nome);
   const days = [...new Set([...ps.map(p => p.day), ...Object.keys(db.fuel).filter(k => k >= from && k <= to)])].sort();
@@ -1333,6 +1374,20 @@ $('photoInput').addEventListener('change', async e => {
     notify(err.message === 'immagine' ? 'Non riesco ad aprire questa immagine.' : 'La foto è troppo grande da salvare sul telefono.');
   }
 });
+// Menu → Macchina XL (sì/no)
+function renderXlToggle() {
+  $('xlToggle').classList.toggle('on', xlOn());
+  $('xlToggle').setAttribute('aria-checked', String(xlOn()));
+}
+$('xlToggle').addEventListener('click', () => {
+  db.settings.xl = !xlOn();
+  if (!db.settings.xl) entry.pax = null;
+  save();
+  renderXlToggle();
+  renderAll();
+});
+$('menuBtn').addEventListener('click', renderXlToggle);
+
 $('openSettings').addEventListener('click', () => {
   closeSheet($('menuSheet'));
   renderSettings();

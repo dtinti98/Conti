@@ -224,7 +224,7 @@ svg { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2
   max-height: 88%; display: flex; flex-direction: column; gap: 12px;
   padding: 8px 16px calc(var(--safe-bottom) + 16px);
   background: var(--surface); border-top: 1px solid var(--line); border-radius: 22px 22px 0 0;
-  transform: translateY(105%); transition: transform .3s cubic-bezier(.2,.8,.2,1); z-index: 11;
+  transform: translateY(calc(100% + 60px)); transition: transform .3s cubic-bezier(.2,.8,.2,1); z-index: 11;
 }
 .sheet.open { transform: translateY(0); }
 .sheet.tall { height: 88%; }
@@ -356,6 +356,35 @@ html { background: #000; }
 .photo-actions { margin-top: 14px; }
 .photo-actions button { min-height: 44px; font-size: 15px; }
 .bg-tile.on .prev { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--text); }
+
+/* Macchina XL: linguette a cartella sopra il tastierino */
+.keypad-sheet { overflow: visible; }
+.pax-tabs { position: absolute; left: 18px; top: -38px; display: flex; gap: 6px; }
+.pax-tabs button {
+  height: 39px; min-width: 64px; padding: 0 14px 2px; display: flex; align-items: center; justify-content: center; gap: 4px;
+  border-radius: 14px 14px 0 0; background: var(--surface); border: 1px solid var(--line); border-bottom: 0;
+  font-family: var(--font-num); font-size: 17px; font-weight: 700; color: var(--muted);
+  transition: color .15s, background .15s, transform .15s;
+}
+.pax-tabs button svg { font-size: 18px; stroke-width: 1.8; }
+.pax-tabs button.on { color: #ffd60a; background: #242016; transform: translateY(-4px); padding-bottom: 6px; height: 43px; }
+.pax-badge, .amount-pax { display: inline-flex; align-items: center; gap: 1px; color: #ffd60a; font-weight: 700; }
+.pax-badge { font-size: 13px; vertical-align: middle; margin-left: 4px; }
+.pax-badge svg, .amount-pax svg { stroke-width: 2; }
+.amount-pax { font-size: .22em; align-self: flex-start; margin-top: .25em; letter-spacing: 0; }
+.kpis.two { grid-template-columns: 1fr 1fr; margin-top: -4px; }
+.kpi span .person { font-size: 12px; vertical-align: -2px; }
+
+/* Interruttore sì/no nel menu */
+.toggle-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.toggle-item small { display: block; font-size: 12px; font-weight: 500; margin-top: 2px; }
+.switch { width: 51px; height: 31px; border-radius: 999px; background: #3a3a3c; position: relative; flex: none; transition: background .2s; }
+.switch::after {
+  content: ""; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%;
+  background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,.3); transition: transform .2s;
+}
+.toggle-item.on .switch { background: #32d74b; }
+.toggle-item.on .switch::after { transform: translateX(20px); }
 
 /* Finestra di conferma */
 .dialog { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 24px; background: rgba(0,0,0,.6); animation: fade .15s ease-out; }

@@ -68,7 +68,7 @@
 
   <main class="center">
     <div class="amount-area">
-      <button id="amountBtn" class="amount"><span id="amountVal">0,00</span><span class="cur">€</span></button>
+      <button id="amountBtn" class="amount"><span id="amountVal">0,00</span><span class="cur">€</span><span id="amountPax" class="amount-pax" hidden></span></button>
     </div>
     <div class="wheel-row">
       <div id="wheelWrap" class="wheel-wrap">
@@ -94,6 +94,11 @@
 
 <!-- Tastierino -->
 <section id="keypadSheet" class="sheet keypad-sheet">
+  <!-- Macchina XL: linguette a cartella per segnare le corse da 5 o 6 persone -->
+  <div id="paxTabs" class="pax-tabs" hidden>
+    <button data-pax="5">5<svg class="person" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.8"/><path d="M4.5 20.5a7.5 7.5 0 0 1 15 0"/></svg></button>
+    <button data-pax="6">6<svg class="person" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.8"/><path d="M4.5 20.5a7.5 7.5 0 0 1 15 0"/></svg></button>
+  </div>
   <div class="sheet-grip"></div>
   <div class="keypad-head">
     <span id="keypadTitle">Importo</span>
@@ -150,6 +155,9 @@
   <button class="menu-item" id="openExport">Esporta (CSV / Markdown)</button>
   <button class="menu-item" id="openMethods">Metodi di pagamento</button>
   <button class="menu-item" id="openSettings">Sfondi</button>
+  <button class="menu-item toggle-item" id="xlToggle" role="switch" aria-checked="false">
+    <span>Macchina XL <small class="muted">corse da 5 e 6 persone</small></span><span class="switch"></span>
+  </button>
   <div class="menu-sep">Backup</div>
   <button class="menu-item" id="backupBtn">Salva backup</button>
   <button class="menu-item" id="restoreBtn">Ripristina backup</button>
