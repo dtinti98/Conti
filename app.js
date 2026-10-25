@@ -737,6 +737,10 @@ const flagSvg = '<svg viewBox="0 0 24 24"><path d="M6 21V3.5"/><path d="M6 4.5c2
 const clockLineSvg = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>';
 const pumpSvg = '<svg viewBox="0 0 24 24"><path d="M4 21V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v16M3 21h13M7 7h5M15 10h2a2 2 0 0 1 2 2v5a1.5 1.5 0 0 0 3 0V9l-3-3"/></svg>';
 
+/* ----- Impostazioni: valori predefiniti (se l'utente non le ha mai toccate) ----- */
+const SETTING_DEFAULTS = { swipeDay: true };
+const setting = key => (key in db.settings ? !!db.settings[key] : !!SETTING_DEFAULTS[key]);
+
 /* ----- Macchina XL: corse da 5 o 6 persone ----- */
 const xlOn = () => !!db.settings.xl;
 // omino stile profilo dei social
@@ -760,6 +764,10 @@ function renderTotSheet() {
   const hr = hourlyOf(viewDay);
   const fuel = db.fuel[viewDay] || 0;
   $('totSheetDate').textContent = '· ' + fmtDate(viewDay);
+  // frecce solo se lo scorrimento è spento; niente giorni futuri
+  const arrows = !setting('swipeDay');
+  $('totPrev').hidden = $('totNext').hidden = !arrows;
+  $('totNext').disabled = viewDay >= todayKey();
   let h = `<div class="big-total">${fmtEuro(total)}</div>`;
   if (fuel) h += `<div class="fuel-note">${pumpSvg} Benzina messa: ${fmtEuro(fuel)}</div>`;
   h += `<div class="kpis">
@@ -794,7 +802,71 @@ $('totSheetBody').addEventListener('click', e => {
   if (e.target.closest('#totAdd')) openEdit(null, { day: viewDay });
   if (e.target.closest('#totShift')) openShiftEdit(viewDay);
 });
-$('totBtn').addEventListener('click', () => { renderTotSheet(); openSheet($('totSheet')); });
+$('totBtn').addEventListener('click', () => {
+  const body = $('totSheetBody');                    // riparte sempre dritto (es. chiuso a metà scorrimento)
+  body.style.transition = body.style.transform = body.style.opacity = '';
+  renderTotSheet();
+  openSheet($('totSheet'));
+});
+
+/* ----- Riepilogo: cambiare giorno scorrendo (o con le frecce) ----- */
+// dir: -1 = giorno prima, +1 = giorno dopo. Il contenuto scivola di lato e rientra dall'altra parte.
+function shiftTotDay(dir) {
+  const nd = addDays(viewDay, dir);
+  const body = $('totSheetBody');
+  if (nd > todayKey()) {                       // oltre oggi non si va: piccolo rimbalzo
+    body.style.transition = 'transform .25s';
+    body.style.transform = '';
+    return;
+  }
+  body.style.transition = 'transform .16s ease-in, opacity .16s';
+  body.style.transform = `translateX(${dir > 0 ? -100 : 100}%)`;
+  body.style.opacity = '0';
+  setTimeout(() => {
+    viewDay = nd;
+    renderAll();                                // aggiorna anche la schermata principale
+    body.scrollTop = 0;
+    body.style.transition = 'none';
+    body.style.transform = `translateX(${dir > 0 ? 40 : -40}%)`;
+    void body.offsetWidth;
+    body.style.transition = 'transform .22s ease-out, opacity .22s';
+    body.style.transform = '';
+    body.style.opacity = '';
+  }, 160);
+}
+$('totPrev').addEventListener('click', () => shiftTotDay(-1));
+$('totNext').addEventListener('click', () => shiftTotDay(1));
+(() => {
+  const body = $('totSheetBody');
+  let x0 = null, y0 = 0, t0 = 0, dx = 0, horiz = false;
+  body.addEventListener('touchstart', e => {
+    if (!setting('swipeDay') || e.touches.length !== 1) { x0 = null; return; }
+    x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; t0 = Date.now(); dx = 0; horiz = false;
+  }, { passive: true });
+  body.addEventListener('touchmove', e => {
+    if (x0 === null) return;
+    const mx = e.touches[0].clientX - x0, my = e.touches[0].clientY - y0;
+    if (!horiz) {
+      if (Math.abs(mx) < 12 && Math.abs(my) < 12) return;
+      if (Math.abs(mx) < Math.abs(my) * 1.3) { x0 = null; return; }   // movimento verticale: è uno scroll
+      horiz = true; body.style.transition = 'none';
+    }
+    dx = mx;
+    // verso il futuro oltre oggi: resistenza (si muove poco)
+    const blocked = dx < 0 && viewDay >= todayKey();
+    body.style.transform = `translateX(${blocked ? dx / 4 : dx}px)`;
+    if (e.cancelable) e.preventDefault();
+  }, { passive: false });
+  const end = () => {
+    if (x0 === null || !horiz) { x0 = null; return; }
+    x0 = null;
+    const fast = Math.abs(dx) / Math.max(1, Date.now() - t0) > 0.4;
+    if (Math.abs(dx) > 70 || (fast && Math.abs(dx) > 30)) shiftTotDay(dx < 0 ? 1 : -1);
+    else { body.style.transition = 'transform .2s'; body.style.transform = ''; }
+  };
+  body.addEventListener('touchend', end);
+  body.addEventListener('touchcancel', end);
+})();
 
 /* ===================== Calendario ===================== */
 let calMonth = null;
@@ -1382,7 +1454,7 @@ $('photoInput').addEventListener('change', async e => {
 // Menu → Impostazioni: interruttori sì/no (data-setting = chiave in db.settings)
 function renderToggles() {
   document.querySelectorAll('#prefsSheet [data-setting]').forEach(t => {
-    const on = !!db.settings[t.dataset.setting];
+    const on = setting(t.dataset.setting);
     t.classList.toggle('on', on);
     t.setAttribute('aria-checked', String(on));
   });
@@ -1391,7 +1463,7 @@ $('prefsSheet').addEventListener('click', e => {
   const t = e.target.closest('[data-setting]');
   if (!t) return;
   const key = t.dataset.setting;
-  db.settings[key] = !db.settings[key];
+  db.settings[key] = !setting(key);
   if (key === 'xl' && !db.settings.xl) entry.pax = null;
   save();
   renderToggles();

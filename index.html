@@ -130,7 +130,12 @@
 <!-- Riepilogo giornata -->
 <section id="totSheet" class="sheet tall">
   <div class="sheet-grip"></div>
-  <div class="sheet-title">Riepilogo <span id="totSheetDate" class="muted"></span></div>
+  <div class="sheet-title tot-title">
+    <!-- frecce per cambiare giorno: visibili solo se "Scorri per cambiare data" è spento -->
+    <button id="totPrev" class="icon-btn day-arrow" aria-label="Giorno prima" hidden><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+    <span>Riepilogo <span id="totSheetDate" class="muted"></span></span>
+    <button id="totNext" class="icon-btn day-arrow" aria-label="Giorno dopo" hidden><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
+  </div>
   <div id="totSheetBody" class="sheet-scroll"></div>
 </section>
 
@@ -227,6 +232,9 @@
   <div class="sheet-title">Impostazioni</div>
   <button class="menu-item toggle-item" data-setting="xl" role="switch" aria-checked="false">
     <span>Macchina XL <small class="muted">Segna le corse da 5 e 6 persone e le conta nelle statistiche.</small></span><span class="switch"></span>
+  </button>
+  <button class="menu-item toggle-item" data-setting="swipeDay" role="switch" aria-checked="true">
+    <span>Scorri per cambiare data <small class="muted">Nel riepilogo scorri a destra o a sinistra per passare al giorno prima o dopo. Se lo spegni compaiono le frecce.</small></span><span class="switch"></span>
   </button>
   <button class="menu-item toggle-item" data-setting="liveAvg" role="switch" aria-checked="false">
     <span>Media oraria effettiva <small class="muted">A turno in corso la media oraria arriva fino ad adesso, non all'ultima corsa. Quando chiudi il turno o finisce la giornata tornano le regole normali.</small></span><span class="switch"></span>
