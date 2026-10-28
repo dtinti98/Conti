@@ -26,7 +26,7 @@ const ROW_H = 38;                 // altezza riga della rotella
 const DURATA_ANNULLA_MS = 4000;  // per quanto resta il popup "Annulla" dopo un inserimento
 
 /* ===================== Dati ===================== */
-const emptyDb = () => ({ v: 1, payments: [], fuel: {}, shifts: {}, notes: {}, lastBackup: null, methods: null, oldMethods: {}, settings: {} });
+const emptyDb = () => ({ v: 1, payments: [], fuel: {}, shifts: {}, notes: {}, goals: {}, lastBackup: null, methods: null, oldMethods: {}, settings: {} });
 function load() {
   let d = null;
   try {
@@ -39,6 +39,7 @@ function load() {
   if (!d.shifts || typeof d.shifts !== 'object') d.shifts = {};
   if (!d.settings || typeof d.settings !== 'object') d.settings = {};
   if (!d.notes || typeof d.notes !== 'object') d.notes = {};   // note della giornata
+  if (!d.goals || typeof d.goals !== 'object') d.goals = {};   // spese mensili da coprire
   return d;
 }
 function save() {
@@ -158,6 +159,27 @@ function openShiftDay() {
   });
   return best;
 }
+
+/* ===================== Spese mensili da coprire ===================== */
+// db.goals = { 'AAAA-MM': centesimi }. Un mese senza valore proprio eredita l'ultimo impostato prima.
+const monthOf = day => day.slice(0, 7);
+function nextMonth(m) { const [y, mm] = m.split('-').map(Number); return ymd(new Date(y, mm, 1)).slice(0, 7); }
+function goalFor(m) {
+  let best = null;
+  Object.keys(db.goals).forEach(k => { if (k <= m && (!best || k > best)) best = k; });
+  return best ? db.goals[best] : 0;
+}
+// Mese corrente (o futuro): vale anche per i mesi dopo.
+// Mese passato: cambia solo quel mese, i successivi restano com'erano.
+function setGoal(m, cents) {
+  if (m < monthOf(todayKey())) {
+    const next = nextMonth(m);
+    if (!(next in db.goals)) db.goals[next] = goalFor(next);
+  }
+  db.goals[m] = cents;
+}
+const monthTotal = m => sum(db.payments.filter(p => p.day.startsWith(m)));
+const monthName = m => parseYmd(m + '-01').toLocaleDateString('it-IT', { month: 'long' });
 
 /* ===================== Stato UI ===================== */
 let viewDay = todayKey();
@@ -333,6 +355,17 @@ function renderTop() {
   $('fuelBtn').classList.toggle('empty', !fuel);
   $('totVal').textContent = fmtEuro(sum(paymentsOf(viewDay)));
   renderShiftBtn();
+  renderGoalBar();
+}
+function renderGoalBar() {
+  const m = monthOf(viewDay), goal = goalFor(m);
+  $('goalBar').hidden = !goal;
+  if (!goal) return;
+  const tot = monthTotal(m), pct = tot / goal * 100, done = tot >= goal;
+  $('goalBar').classList.toggle('done', done);
+  $('goalFill').style.width = Math.min(100, pct) + '%';
+  $('goalLabel').textContent = done ? `Spese di ${monthName(m)} coperte ✓` : `Spese di ${monthName(m)} · ${fmtEuro(tot)} di ${fmtEuro(goal)}`;
+  $('goalPct').textContent = done ? (tot > goal ? `+${fmtEuro(tot - goal)}` : '100%') : `${Math.floor(pct)}%`;
 }
 
 function renderEntry() {
@@ -947,7 +980,32 @@ function renderCal() {
     h += `<button class="${cls}" data-k="${k}" ${k > today ? 'disabled' : ''}>${d}<small>${totals[k] ? fmtShort(totals[k]) : ''}</small></button>`;
   }
   $('calGrid').innerHTML = h;
+  renderCalGoal();
 }
+function renderCalGoal() {
+  const m = `${calMonth.y}-${pad2(calMonth.m + 1)}`, goal = goalFor(m), b = $('calGoal');
+  b.className = 'cal-goal' + (goal ? '' : ' empty');
+  if (!goal) { b.innerHTML = `+ Imposta spese mensili di ${monthName(m)}`; return; }
+  const tot = monthTotal(m), done = tot >= goal;
+  b.classList.toggle('done', done);
+  b.innerHTML = `<span class="row"><span>Spese di ${monthName(m)}: ${fmtEuro(goal)}</span><span>${fmtEuro(tot)} ${penSvg}</span></span>
+    <i><i style="width:${Math.min(100, tot / goal * 100)}%"></i></i>`;
+}
+$('calGoal').addEventListener('click', () => {
+  const m = `${calMonth.y}-${pad2(calMonth.m + 1)}`, before = goalFor(m);
+  let val = before;
+  openKeypad({
+    title: `Spese di ${monthName(m)}`, euro: true,
+    get: () => val, set: v => { val = v; },
+    onDone: () => {
+      if (val === before) return;
+      setGoal(m, val);                       // 0 = togli
+      save();
+      renderCal();
+      renderAll();
+    },
+  });
+});
 function shiftCal(dir) { const d = new Date(calMonth.y, calMonth.m + dir, 1); calMonth = { y: d.getFullYear(), m: d.getMonth() }; renderCal(); }
 $('calPrev').addEventListener('click', () => shiftCal(-1));
 $('calNext').addEventListener('click', () => shiftCal(1));
@@ -1166,7 +1224,7 @@ function renderBackupInfo() {
 }
 $('menuBtn').addEventListener('click', () => { renderBackupInfo(); openSheet($('menuSheet')); });
 $('backupBtn').addEventListener('click', async () => {
-  const data = { app: 'AppConti', v: 1, exportedAt: new Date().toISOString(), payments: db.payments, fuel: db.fuel, shifts: db.shifts, notes: db.notes, methods: db.methods, oldMethods: db.oldMethods, settings: db.settings };
+  const data = { app: 'AppConti', v: 1, exportedAt: new Date().toISOString(), payments: db.payments, fuel: db.fuel, shifts: db.shifts, notes: db.notes, goals: db.goals, methods: db.methods, oldMethods: db.oldMethods, settings: db.settings };
   const ok = await shareFile(`conti-backup-${todayKey()}.json`, JSON.stringify(data), 'application/json');
   if (ok) { db.lastBackup = Date.now(); save(); renderBackupInfo(); }
 });
@@ -1186,6 +1244,7 @@ $('restoreInput').addEventListener('change', async e => {
     db.fuel = d.fuel && typeof d.fuel === 'object' ? d.fuel : {};
     db.shifts = d.shifts && typeof d.shifts === 'object' ? d.shifts : {};
     db.notes = d.notes && typeof d.notes === 'object' ? d.notes : {};
+    db.goals = d.goals && typeof d.goals === 'object' ? d.goals : {};
     if (d.settings && typeof d.settings === 'object') { db.settings = d.settings; applySettings(); }
     const validM = Array.isArray(d.methods) && d.methods.length &&
       d.methods.every(m => m && typeof m.nome === 'string' && /^#[0-9a-f]{6}$/i.test(m.colore) && /^#[0-9a-f]{6}$/i.test(m.bordo));

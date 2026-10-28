@@ -66,6 +66,12 @@
     <button id="totBtn" class="tot-btn">Tot: <span id="totVal">0 €</span></button>
   </div>
 
+  <!-- spese mensili da coprire: si riempie con le corse del mese (si imposta dal calendario) -->
+  <div id="goalBar" class="goal-bar" hidden>
+    <div class="goal-text"><span id="goalLabel"></span><span id="goalPct"></span></div>
+    <div class="goal-track"><i id="goalFill"></i></div>
+  </div>
+
   <main class="center">
     <div class="amount-area">
       <button id="amountBtn" class="amount"><span id="amountVal">0,00</span><span class="cur">€</span><span id="amountPax" class="amount-pax" hidden></span><span id="amountNote" class="amount-note" hidden><svg viewBox="0 0 24 24"><path d="M5 4h14v10.5L13.5 20H5z"/><path d="M13.5 20v-5.5H19M8.5 9h7M8.5 12.5h4"/></svg></span></button>
@@ -127,6 +133,7 @@
   </div>
   <div class="cal-dow"><span>L</span><span>M</span><span>M</span><span>G</span><span>V</span><span>S</span><span>D</span></div>
   <div id="calGrid" class="cal-grid"></div>
+  <button id="calGoal" class="cal-goal"></button>
   <button id="calToday" class="secondary-btn">Vai a oggi</button>
 </section>
 
