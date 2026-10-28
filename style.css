@@ -440,6 +440,10 @@ html { background: #000; }
 .cal-goal > i { display: block; height: 6px; border-radius: 99px; background: rgba(255,255,255,.1); overflow: hidden; }
 .cal-goal.empty { color: var(--muted); text-align: center; align-items: center; background: transparent; border: 1px dashed rgba(255,255,255,.18); }
 
+.choice-buttons { display: flex; flex-direction: column; gap: 8px; }
+.choice-buttons button { min-height: 48px; font-size: 16px; }
+.choice-buttons .text-btn { min-height: 40px; color: var(--muted); font-weight: 600; }
+
 /* Finestra di conferma */
 .dialog { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 24px; background: rgba(0,0,0,.6); animation: fade .15s ease-out; }
 .dialog-box { width: 100%; max-width: 340px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 26px; padding: 22px 16px 16px; animation: pop .18s ease-out; }

@@ -169,10 +169,12 @@ function goalFor(m) {
   Object.keys(db.goals).forEach(k => { if (k <= m && (!best || k > best)) best = k; });
   return best ? db.goals[best] : 0;
 }
-// Mese corrente (o futuro): vale anche per i mesi dopo.
-// Mese passato: cambia solo quel mese, i successivi restano com'erano.
-function setGoal(m, cents) {
-  if (m < monthOf(todayKey())) {
+// onward = true: questo mese e tutti i successivi (gli importi propri dei mesi dopo vengono tolti);
+// onward = false: solo questo mese (il mese dopo mantiene l'importo che aveva).
+function setGoal(m, cents, onward) {
+  if (onward) {
+    Object.keys(db.goals).forEach(k => { if (k > m) delete db.goals[k]; });
+  } else {
     const next = nextMonth(m);
     if (!(next in db.goals)) db.goals[next] = goalFor(next);
   }
@@ -209,6 +211,21 @@ function ask(text, { ok = 'Conferma', danger = false, cancel = 'Annulla' } = {})
   });
 }
 const notify = text => ask(text, { ok: 'OK', cancel: null });
+
+// Finestra con più scelte: risolve con l'indice della scelta, o null se annullata.
+// options = [{ label, cls }]; l'ultimo pulsante è sempre "Annulla".
+function choose(text, options) {
+  return new Promise(resolve => {
+    const dlg = $('choiceDialog'), box = $('choiceButtons');
+    $('choiceText').textContent = text;
+    box.innerHTML = options.map((o, i) => `<button class="${o.cls || 'secondary-btn'}" data-i="${i}">${esc(o.label)}</button>`).join('')
+      + '<button class="text-btn" data-i="-1">Annulla</button>';
+    dlg.hidden = false;
+    const done = v => { dlg.hidden = true; box.onclick = dlg.onclick = null; resolve(v); };
+    box.onclick = e => { const b = e.target.closest('[data-i]'); if (b) done(Number(b.dataset.i) < 0 ? null : Number(b.dataset.i)); };
+    dlg.onclick = e => { if (e.target === dlg) done(null); };
+  });
+}
 
 // Finestra per scrivere una nota. Risolve con il testo (stringa vuota = togli la nota) o null se annullata.
 function editNote(title, initial = '') {
@@ -997,9 +1014,15 @@ $('calGoal').addEventListener('click', () => {
   openKeypad({
     title: `Spese di ${monthName(m)}`, euro: true,
     get: () => val, set: v => { val = v; },
-    onDone: () => {
+    onDone: async () => {
       if (val === before) return;
-      setGoal(m, val);                       // 0 = togli
+      const what = val ? `Spese di ${monthName(m)}: ${fmtEuro(val)}` : `Togliere le spese di ${monthName(m)}?`;
+      const pick = await choose(what, [
+        { label: 'Questo mese e i successivi', cls: 'primary-btn' },
+        { label: 'Solo questo mese' },
+      ]);
+      if (pick === null) return;
+      setGoal(m, val, pick === 0);             // 0 € = togli
       save();
       renderCal();
       renderAll();
