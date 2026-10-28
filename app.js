@@ -376,13 +376,14 @@ function renderTop() {
 }
 function renderGoalBar() {
   const m = monthOf(viewDay), goal = goalFor(m);
-  $('goalBar').hidden = !goal;
-  if (!goal) return;
-  const tot = monthTotal(m), pct = tot / goal * 100, done = tot >= goal;
-  $('goalBar').classList.toggle('done', done);
-  $('goalFill').style.width = Math.min(100, pct) + '%';
-  $('goalLabel').textContent = done ? `Spese di ${monthName(m)} coperte ✓` : `Spese di ${monthName(m)} · ${fmtEuro(tot)} di ${fmtEuro(goal)}`;
-  $('goalPct').textContent = done ? (tot > goal ? `+${fmtEuro(tot - goal)}` : '100%') : `${Math.floor(pct)}%`;
+  const tot = goal ? monthTotal(m) : 0;
+  // spese coperte: la barra sparisce, la schermata resta pulita
+  $('goalBar').hidden = !goal || tot >= goal;
+  if ($('goalBar').hidden) return;
+  const pct = tot / goal * 100;
+  $('goalFill').style.width = pct + '%';
+  $('goalLabel').textContent = `Spese di ${monthName(m)} · ${fmtEuro(tot)} di ${fmtEuro(goal)}`;
+  $('goalPct').textContent = `${Math.floor(pct)}%`;
 }
 
 function renderEntry() {
@@ -1003,9 +1004,11 @@ function renderCalGoal() {
   const m = `${calMonth.y}-${pad2(calMonth.m + 1)}`, goal = goalFor(m), b = $('calGoal');
   b.className = 'cal-goal' + (goal ? '' : ' empty');
   if (!goal) { b.innerHTML = `+ Imposta spese mensili di ${monthName(m)}`; return; }
-  const tot = monthTotal(m), done = tot >= goal;
+  const tot = monthTotal(m), done = tot >= goal, diff = tot - goal;
   b.classList.toggle('done', done);
-  b.innerHTML = `<span class="row"><span>Spese di ${monthName(m)}: ${fmtEuro(goal)}</span><span>${fmtEuro(tot)} ${penSvg}</span></span>
+  // a destra: quanto sei sopra le spese (+) o quanto manca (−)
+  b.innerHTML = `<span class="row"><span>Spese di ${monthName(m)}: ${fmtEuro(goal)}</span>
+      <span class="goal-diff ${done ? 'up' : 'down'}">${done ? '+' : '−'}${fmtEuro(Math.abs(diff))} ${penSvg}</span></span>
     <i><i style="width:${Math.min(100, tot / goal * 100)}%"></i></i>`;
 }
 $('calGoal').addEventListener('click', () => {

@@ -438,6 +438,10 @@ html { background: #000; }
 .cal-goal .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .cal-goal .row span:last-child { color: var(--muted); font-weight: 500; display: inline-flex; align-items: center; gap: 4px; }
 .cal-goal > i { display: block; height: 6px; border-radius: 99px; background: rgba(255,255,255,.1); overflow: hidden; }
+.cal-goal .row .goal-diff { font-weight: 700; font-variant-numeric: tabular-nums; }
+.cal-goal .row .goal-diff.up { color: #32d74b; }
+.cal-goal .row .goal-diff.down { color: #ff9f0a; }
+.cal-goal .row .goal-diff svg { color: var(--muted); }
 .cal-goal.empty { color: var(--muted); text-align: center; align-items: center; background: transparent; border: 1px dashed rgba(255,255,255,.18); }
 
 .choice-buttons { display: flex; flex-direction: column; gap: 8px; }
