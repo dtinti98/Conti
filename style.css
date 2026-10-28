@@ -393,6 +393,36 @@ html { background: #000; }
 .toggle-item.on .switch { background: #32d74b; }
 .toggle-item.on .switch::after { transform: translateX(20px); }
 
+/* Note (corse e giornata) */
+.keypad-title { display: inline-flex; align-items: center; gap: 4px; }
+.note-btn { font-size: 18px; color: var(--muted); padding: 4px 6px; display: grid; }
+.note-btn svg { stroke-width: 1.7; }
+.note-btn.on { color: #ffd60a; }
+.amount-note { font-size: .2em; color: #ffd60a; align-self: flex-start; margin-top: .3em; display: grid; }
+.amount-note svg { stroke-width: 2; }
+.edit-note { text-align: left; padding: 12px 14px; border-radius: 14px; background: var(--surface-2); font-size: 15px; color: var(--muted); display: flex; gap: 8px; align-items: flex-start; }
+.edit-note svg { font-size: 18px; flex: none; margin-top: 1px; }
+.edit-note.has { color: var(--text); }
+.edit-note.has svg { color: #ffd60a; }
+.edit-note span { white-space: pre-wrap; word-break: break-word; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.prow-note { display: block; font-size: 12px; color: #ffd60a; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.prow > span:nth-child(3) { min-width: 0; }
+.day-note { display: flex; gap: 8px; align-items: flex-start; width: 100%; text-align: left; margin: 10px 0 2px; padding: 10px 12px; border-radius: 14px; background: rgba(255,214,10,.1); color: #ffe58a; font-size: 14px; }
+.day-note svg { font-size: 17px; flex: none; margin-top: 1px; color: #ffd60a; }
+.day-note span { white-space: pre-wrap; word-break: break-word; }
+.day-note-add { display: block; margin: 8px auto 0; font-size: 13px; font-weight: 600; color: var(--muted); padding: 6px 10px; }
+.note-dialog { align-items: start; padding-top: 14vh; }
+.note-dialog textarea {
+  width: 100%; margin-bottom: 14px; padding: 12px; border-radius: 14px; resize: none;
+  background: #2c2c2e; color: var(--text); border: 1px solid var(--line); font: inherit; font-size: 16px;
+  -webkit-user-select: text; user-select: text;
+}
+.note-dialog .edit-actions button { min-height: 46px; font-size: 15px; }
+.cal-day { position: relative; }
+.cal-day.noted::after { /* pallino tipo notifica: in questo giorno c'è almeno una nota */
+  content: ""; position: absolute; top: 4px; right: 6px; width: 7px; height: 7px; border-radius: 50%; background: var(--danger);
+}
+
 /* Finestra di conferma */
 .dialog { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 24px; background: rgba(0,0,0,.6); animation: fade .15s ease-out; }
 .dialog-box { width: 100%; max-width: 340px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 26px; padding: 22px 16px 16px; animation: pop .18s ease-out; }

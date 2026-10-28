@@ -26,7 +26,7 @@ const ROW_H = 38;                 // altezza riga della rotella
 const DURATA_ANNULLA_MS = 4000;  // per quanto resta il popup "Annulla" dopo un inserimento
 
 /* ===================== Dati ===================== */
-const emptyDb = () => ({ v: 1, payments: [], fuel: {}, shifts: {}, lastBackup: null, methods: null, oldMethods: {}, settings: {} });
+const emptyDb = () => ({ v: 1, payments: [], fuel: {}, shifts: {}, notes: {}, lastBackup: null, methods: null, oldMethods: {}, settings: {} });
 function load() {
   let d = null;
   try {
@@ -38,6 +38,7 @@ function load() {
   if (!d.oldMethods || typeof d.oldMethods !== 'object') d.oldMethods = {};
   if (!d.shifts || typeof d.shifts !== 'object') d.shifts = {};
   if (!d.settings || typeof d.settings !== 'object') d.settings = {};
+  if (!d.notes || typeof d.notes !== 'object') d.notes = {};   // note della giornata
   return d;
 }
 function save() {
@@ -187,6 +188,36 @@ function ask(text, { ok = 'Conferma', danger = false, cancel = 'Annulla' } = {})
 }
 const notify = text => ask(text, { ok: 'OK', cancel: null });
 
+// Finestra per scrivere una nota. Risolve con il testo (stringa vuota = togli la nota) o null se annullata.
+function editNote(title, initial = '') {
+  return new Promise(resolve => {
+    const dlg = $('noteDialog'), txt = $('noteText');
+    $('noteDialogTitle').textContent = title;
+    txt.value = initial || '';
+    $('noteDelete').hidden = !initial;
+    dlg.hidden = false;
+    setTimeout(() => txt.focus(), 50);
+    const done = v => {
+      dlg.hidden = true;
+      txt.blur();
+      $('noteSave').onclick = $('noteCancel').onclick = $('noteDelete').onclick = dlg.onclick = null;
+      resolve(v);
+    };
+    $('noteSave').onclick = () => done(txt.value.trim());
+    $('noteCancel').onclick = () => done(null);
+    $('noteDelete').onclick = () => done('');
+    dlg.onclick = e => { if (e.target === dlg) done(null); };
+  });
+}
+// Nota della giornata (si apre dal riepilogo)
+async function editDayNote(day) {
+  const txt = await editNote(`Nota del ${fmtDate(day)}`, db.notes[day] || '');
+  if (txt === null) return;
+  if (txt) db.notes[day] = txt; else delete db.notes[day];
+  save();
+  renderAll();
+}
+
 /* ===================== Fogli (bottom sheet) ===================== */
 const backdrop = $('backdrop');
 const stack = [];
@@ -258,11 +289,19 @@ function openKeypad(opts) {
 function updateKeypadPreview() {
   if (!kp) return;
   $('keypadPreview').textContent = kp.euro ? fmtEuro(kp.get()) : `${fmtCents(kp.get())} €`;
+  // pulsantino nota: solo per l'importo di una corsa (non per la benzina)
+  $('keypadNote').hidden = !kp.note;
+  if (kp.note) $('keypadNote').classList.toggle('on', !!kp.note.get());
   // linguette 5/6 persone: solo con "Macchina XL" attiva e solo per l'importo di una corsa
   const tabs = $('paxTabs'), show = !!(kp.pax && xlOn());
   tabs.hidden = !show;
   if (show) tabs.querySelectorAll('[data-pax]').forEach(t => t.classList.toggle('on', Number(t.dataset.pax) === kp.pax.get()));
 }
+$('keypadNote').addEventListener('click', async () => {
+  if (!kp || !kp.note) return;
+  const k = kp, txt = await editNote('Nota sulla corsa', k.note.get());
+  if (txt !== null) { k.note.set(txt); updateKeypadPreview(); }
+});
 $('paxTabs').addEventListener('click', e => {
   const t = e.target.closest('[data-pax]');
   if (!t || !kp || !kp.pax) return;
@@ -311,6 +350,7 @@ function renderEntry() {
   const pax = xlOn() && entry.pax;
   $('amountPax').hidden = !pax;
   if (pax) $('amountPax').innerHTML = `${pax}${personSvg}`;
+  $('amountNote').hidden = !entry.note;
 
   const box = $('methods');
   box.classList.toggle('has-sel', !!entry.method);
@@ -348,6 +388,7 @@ $('amountBtn').addEventListener('click', () => openKeypad({
   get: () => entry.cents,
   set: v => { entry.cents = v; renderEntry(); },
   pax: { get: () => entry.pax || null, set: v => { entry.pax = v; renderEntry(); } },
+  note: { get: () => entry.note || '', set: v => { entry.note = v; renderEntry(); } },
 }));
 
 $('fuelBtn').addEventListener('click', () => openKeypad({
@@ -362,12 +403,13 @@ let toastTimer = null, toastUndo = null;
 $('confirmBtn').addEventListener('click', () => {
   if (!(entry.cents > 0 && entry.method)) return;
   if (viewDay !== todayKey()) {        // giorno passato: chiedi l'orario
-    openEdit(null, { day: viewDay, cents: entry.cents, method: entry.method, pax: entry.pax, fromEntry: true });
+    openEdit(null, { day: viewDay, cents: entry.cents, method: entry.method, pax: entry.pax, note: entry.note, fromEntry: true });
     return;
   }
   const now = Date.now();
   const p = { id: uid(), cents: entry.cents, method: entry.method, ts: now, day: workDayOf(now) };
   if (xlOn() && entry.pax) p.pax = entry.pax;          // corsa da 5 o 6 persone (Macchina XL)
+  if (entry.note) p.note = entry.note;
   // prima corsa senza aver premuto il taxi: il turno parte da solo (inizio = 20 min prima)
   const autoShift = shiftBtnState().mode === 'idle';
   if (autoShift) db.shifts[p.day] = { start: now - MINUTI_PRIMA_CORSA * 60000, auto: true };
@@ -377,7 +419,7 @@ $('confirmBtn').addEventListener('click', () => {
     db.payments = db.payments.filter(x => x.id !== p.id);
     if (autoShift) delete db.shifts[p.day];         // annullando la corsa si annulla anche l'avvio
     save();
-    entry = { cents: p.cents, method: p.method, pax: p.pax || null };   // torna tutto com'era per correggere
+    entry = { cents: p.cents, method: p.method, pax: p.pax || null, note: p.note || '' };   // torna tutto com'era per correggere
   });
   renderAll(p.id);
 });
@@ -600,11 +642,11 @@ function openEdit(id, preset) {
   if (id) {
     const p = db.payments.find(x => x.id === id);
     if (!p) return;
-    ed = { id, day: p.day, cents: p.cents, method: p.method, pax: p.pax || null, time: fmtTime(p.ts) };
+    ed = { id, day: p.day, cents: p.cents, method: p.method, pax: p.pax || null, note: p.note || '', time: fmtTime(p.ts) };
   } else {
     const ps = paymentsOf(preset.day);
     const time = preset.day === todayKey() ? fmtTime(Date.now()) : (ps.length ? fmtTime(ps[ps.length - 1].ts) : '21:00');
-    ed = { id: null, day: preset.day, cents: preset.cents || 0, method: preset.method || null, pax: preset.pax || null, time, fromEntry: !!preset.fromEntry };
+    ed = { id: null, day: preset.day, cents: preset.cents || 0, method: preset.method || null, pax: preset.pax || null, note: preset.note || '', time, fromEntry: !!preset.fromEntry };
   }
   $('editTitle').textContent = (ed.id ? 'Modifica pagamento' : 'Nuovo pagamento') + ' · ' + fmtDate(ed.day);
   $('editDelete').textContent = ed.id ? 'Elimina' : 'Annulla';
@@ -615,6 +657,9 @@ function openEdit(id, preset) {
 function renderEdit() {
   $('editAmount').innerHTML = `${fmtCents(ed.cents)} €` +
     (xlOn() && ed.pax ? ` <span class="pax-badge">${ed.pax}${personSvg}</span>` : '');
+  const n = $('editNote');
+  n.classList.toggle('has', !!ed.note);
+  n.innerHTML = noteSvg + `<span>${ed.note ? esc(ed.note) : 'Aggiungi una nota'}</span>`;
   const box = $('editMethods');
   box.classList.toggle('has-sel', !!ed.method);
   box.querySelectorAll('.method-btn').forEach(b => b.classList.toggle('sel', b.dataset.m === ed.method));
@@ -626,7 +671,13 @@ $('editAmount').addEventListener('click', () => openKeypad({
   get: () => ed.cents,
   set: v => { ed.cents = v; renderEdit(); },
   pax: { get: () => ed.pax || null, set: v => { ed.pax = v; renderEdit(); } },
+  note: { get: () => ed.note || '', set: v => { ed.note = v; renderEdit(); } },
 }));
+$('editNote').addEventListener('click', async () => {
+  if (!ed) return;
+  const txt = await editNote('Nota sulla corsa', ed.note);
+  if (txt !== null && ed) { ed.note = txt; renderEdit(); }
+});
 $('editTime').addEventListener('change', e => { if (ed && e.target.value) ed.time = e.target.value; });
 $('editSave').addEventListener('click', () => {
   if (!ed || !(ed.cents > 0 && ed.method)) return;
@@ -636,10 +687,12 @@ $('editSave').addEventListener('click', () => {
     const p = db.payments.find(x => x.id === ed.id);
     Object.assign(p, { cents: ed.cents, method: ed.method, ts, day: workDayOf(ts) });
     if (xlOn()) { if (ed.pax) p.pax = ed.pax; else delete p.pax; }   // con XL spenta il dato resta com'era
+    if (ed.note) p.note = ed.note; else delete p.note;
     focus = p.id;
   } else {
     const p = { id: uid(), cents: ed.cents, method: ed.method, ts, day: workDayOf(ts) };
     if (xlOn() && ed.pax) p.pax = ed.pax;
+    if (ed.note) p.note = ed.note;
     db.payments.push(p); focus = p.id;
     if (ed.fromEntry) entry = { cents: 0, method: null };
   }
@@ -735,6 +788,7 @@ const penSvg = '<svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16zM13.5 6
 const taxiSvg = '<svg viewBox="0 0 24 24"><path d="M10 3.5h4v2h-4z"/><path d="M5.5 11l1.4-3.9A2.2 2.2 0 0 1 9 5.5h6a2.2 2.2 0 0 1 2.1 1.6l1.4 3.9"/><rect x="3.5" y="11" width="17" height="6" rx="2"/><path d="M7.5 14h.01M16.5 14h.01M6.5 17v2M17.5 17v2"/></svg>';
 const flagSvg = '<svg viewBox="0 0 24 24"><path d="M6 21V3.5"/><path d="M6 4.5c2.5-1.3 4.5-1.3 6.5 0s4 1.3 6.5 0v8c-2.5 1.3-4.5 1.3-6.5 0s-4-1.3-6.5 0"/></svg>';
 const clockLineSvg = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>';
+const noteSvg = '<svg viewBox="0 0 24 24"><path d="M5 4h14v10.5L13.5 20H5z"/><path d="M13.5 20v-5.5H19M8.5 9h7M8.5 12.5h4"/></svg>';
 const pumpSvg = '<svg viewBox="0 0 24 24"><path d="M4 21V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v16M3 21h13M7 7h5M15 10h2a2 2 0 0 1 2 2v5a1.5 1.5 0 0 0 3 0V9l-3-3"/></svg>';
 
 /* ----- Impostazioni: valori predefiniti (se l'utente non le ha mai toccate) ----- */
@@ -770,6 +824,10 @@ function renderTotSheet() {
   $('totNext').disabled = viewDay >= todayKey();
   let h = `<div class="big-total">${fmtEuro(total)}</div>`;
   if (fuel) h += `<div class="fuel-note">${pumpSvg} Benzina messa: ${fmtEuro(fuel)}</div>`;
+  const dayNote = db.notes[viewDay];
+  h += dayNote
+    ? `<button class="day-note" id="dayNote">${noteSvg}<span>${esc(dayNote)}</span></button>`
+    : `<button class="day-note-add" id="dayNote">+ Nota del giorno</button>`;
   h += `<div class="kpis">
     <div class="kpi"><b>${ps.length}</b><span>${labelCorse()}</span></div>
     <div class="kpi"><b>${hr ? fmtEuro(Math.round(hr.perHour)) : '—'}</b><span>media oraria</span></div>
@@ -790,7 +848,7 @@ function renderTotSheet() {
   h += ps.length ? ps.slice().reverse().map(p => {
     const m = methodInfo(p.method);
     return `<button class="prow" data-id="${p.id}"><span class="time">${fmtTime(p.ts)}</span>
-      <i class="dot" style="background:${m.bordo}"></i><span>${esc(p.method)} ${paxTag(p)}</span>
+      <i class="dot" style="background:${m.bordo}"></i><span>${esc(p.method)} ${paxTag(p)}${p.note ? `<small class="prow-note">${esc(p.note)}</small>` : ''}</span>
       <span class="val">${fmtEuro(p.cents)}</span>${penSvg}</button>`;
   }).join('') : `<div class="empty-msg">${xlOn() ? 'Nessuna corsa' : 'Nessun pagamento'}</div>`;
   h += `<button class="secondary-btn add-btn" id="totAdd">+ Aggiungi ${xlOn() ? 'corsa' : 'pagamento'}</button>`;
@@ -801,6 +859,7 @@ $('totSheetBody').addEventListener('click', e => {
   if (row) return openEdit(row.dataset.id);
   if (e.target.closest('#totAdd')) openEdit(null, { day: viewDay });
   if (e.target.closest('#totShift')) openShiftEdit(viewDay);
+  if (e.target.closest('#dayNote')) editDayNote(viewDay);
 });
 $('totBtn').addEventListener('click', () => {
   const body = $('totSheetBody');                    // riparte sempre dritto (es. chiuso a metà scorrimento)
@@ -875,6 +934,8 @@ function renderCal() {
   $('calTitle').textContent = new Date(y, m, 1).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
   const totals = {};
   db.payments.forEach(p => { totals[p.day] = (totals[p.day] || 0) + p.cents; });
+  // giorni con almeno una nota (su una corsa o sulla giornata): pallino tipo notifica
+  const noted = new Set([...db.payments.filter(p => p.note).map(p => p.day), ...Object.keys(db.notes)]);
   const first = new Date(y, m, 1);
   const lead = (first.getDay() + 6) % 7;                 // lunedì = 0
   const nDays = new Date(y, m + 1, 0).getDate();
@@ -882,7 +943,7 @@ function renderCal() {
   let h = '<span></span>'.repeat(lead);
   for (let d = 1; d <= nDays; d++) {
     const k = ymd(new Date(y, m, d));
-    const cls = ['cal-day', totals[k] ? 'has' : '', k === today ? 'today' : '', k === viewDay ? 'view' : '', k > today ? 'future' : ''].join(' ');
+    const cls = ['cal-day', totals[k] ? 'has' : '', k === today ? 'today' : '', k === viewDay ? 'view' : '', k > today ? 'future' : '', noted.has(k) ? 'noted' : ''].join(' ');
     h += `<button class="${cls}" data-k="${k}" ${k > today ? 'disabled' : ''}>${d}<small>${totals[k] ? fmtShort(totals[k]) : ''}</small></button>`;
   }
   $('calGrid').innerHTML = h;
@@ -1023,10 +1084,11 @@ function exportTable() {
   const ps = paymentsBetween(from, to);
   if (exp.kind === 'all') {
     // con Macchina XL c'è anche la colonna Persone (5 o 6; vuota = corsa normale)
-    const xl = xlOn();
-    const rows = ps.map(p => [fmtDateFull(p.day), fmtTime(p.ts), p.method, plainNum(p.cents), ...(xl ? [p.pax ? String(p.pax) : ''] : [])]);
-    rows.push(['Totale', '', '', plainNum(sum(ps)), ...(xl ? [''] : [])]);
-    return { head: ['Data', 'Ora', 'Metodo', 'Importo', ...(xl ? ['Persone'] : [])], rows };
+    const xl = xlOn(), notes = ps.some(p => p.note);   // colonna Nota solo se nel periodo c'è almeno una nota
+    const rows = ps.map(p => [fmtDateFull(p.day), fmtTime(p.ts), p.method, plainNum(p.cents),
+      ...(xl ? [p.pax ? String(p.pax) : ''] : []), ...(notes ? [(p.note || '').replace(/\s+/g, ' ')] : [])]);
+    rows.push(['Totale', '', '', plainNum(sum(ps)), ...(xl ? [''] : []), ...(notes ? [''] : [])]);
+    return { head: ['Data', 'Ora', 'Metodo', 'Importo', ...(xl ? ['Persone'] : []), ...(notes ? ['Nota'] : [])], rows };
   }
   const names = byMethod(ps).filter(m => m.cents > 0 || metodi().some(x => x.nome === m.nome)).map(m => m.nome);
   const days = [...new Set([...ps.map(p => p.day), ...Object.keys(db.fuel).filter(k => k >= from && k <= to)])].sort();
@@ -1104,7 +1166,7 @@ function renderBackupInfo() {
 }
 $('menuBtn').addEventListener('click', () => { renderBackupInfo(); openSheet($('menuSheet')); });
 $('backupBtn').addEventListener('click', async () => {
-  const data = { app: 'AppConti', v: 1, exportedAt: new Date().toISOString(), payments: db.payments, fuel: db.fuel, shifts: db.shifts, methods: db.methods, oldMethods: db.oldMethods, settings: db.settings };
+  const data = { app: 'AppConti', v: 1, exportedAt: new Date().toISOString(), payments: db.payments, fuel: db.fuel, shifts: db.shifts, notes: db.notes, methods: db.methods, oldMethods: db.oldMethods, settings: db.settings };
   const ok = await shareFile(`conti-backup-${todayKey()}.json`, JSON.stringify(data), 'application/json');
   if (ok) { db.lastBackup = Date.now(); save(); renderBackupInfo(); }
 });
@@ -1123,6 +1185,7 @@ $('restoreInput').addEventListener('change', async e => {
     db.payments = d.payments;
     db.fuel = d.fuel && typeof d.fuel === 'object' ? d.fuel : {};
     db.shifts = d.shifts && typeof d.shifts === 'object' ? d.shifts : {};
+    db.notes = d.notes && typeof d.notes === 'object' ? d.notes : {};
     if (d.settings && typeof d.settings === 'object') { db.settings = d.settings; applySettings(); }
     const validM = Array.isArray(d.methods) && d.methods.length &&
       d.methods.every(m => m && typeof m.nome === 'string' && /^#[0-9a-f]{6}$/i.test(m.colore) && /^#[0-9a-f]{6}$/i.test(m.bordo));
