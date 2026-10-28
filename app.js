@@ -1186,7 +1186,7 @@ function exportTable() {
 function exportText(sep) {
   const { head, rows } = exportTable();
   if (exp.format === 'md') {
-    const line = r => `| ${r.join(' | ')} |`;
+    const line = r => `| ${r.map(v => String(v).replace(/\|/g, '\\|')).join(' | ')} |`;   // "|" in una nota non rompe la tabella
     return [line(head), line(head.map(() => '---')), ...rows.map(line)].join('\n') + '\n';
   }
   const cell = v => (/[";\t\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
