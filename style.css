@@ -424,13 +424,8 @@ html { background: #000; }
 }
 
 /* Spese mensili da coprire */
-.goal-bar { width: 72%; max-width: 300px; margin: 10px auto 0; }
-.goal-text { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 5px; }
-.goal-text #goalPct { color: var(--text); font-variant-numeric: tabular-nums; }
-.goal-track { height: 6px; border-radius: 99px; background: rgba(255,255,255,.1); overflow: hidden; }
-.goal-track i, .cal-goal i i { display: block; height: 100%; width: 0; border-radius: 99px; background: linear-gradient(90deg, #ff9f0a, #ffd60a); transition: width .5s ease; }
-.goal-bar.done .goal-track i, .cal-goal.done i i { background: #32d74b; }
-.goal-bar.done #goalPct { color: #32d74b; }
+.cal-goal i i { display: block; height: 100%; width: 0; border-radius: 99px; background: linear-gradient(90deg, #ff9f0a, #ffd60a); transition: width .5s ease; }
+.cal-goal.done i i { background: #32d74b; }
 .cal-goal {
   display: flex; flex-direction: column; gap: 6px; width: 100%; text-align: left; flex: none;
   padding: 12px 14px; border-radius: 14px; background: var(--surface-2); font-size: 14px; font-weight: 600;

@@ -372,18 +372,6 @@ function renderTop() {
   $('fuelBtn').classList.toggle('empty', !fuel);
   $('totVal').textContent = fmtEuro(sum(paymentsOf(viewDay)));
   renderShiftBtn();
-  renderGoalBar();
-}
-function renderGoalBar() {
-  const m = monthOf(viewDay), goal = goalFor(m);
-  const tot = goal ? monthTotal(m) : 0;
-  // spese coperte: la barra sparisce, la schermata resta pulita
-  $('goalBar').hidden = !goal || tot >= goal;
-  if ($('goalBar').hidden) return;
-  const pct = tot / goal * 100;
-  $('goalFill').style.width = pct + '%';
-  $('goalLabel').textContent = `Spese di ${monthName(m)} · ${fmtEuro(tot)} di ${fmtEuro(goal)}`;
-  $('goalPct').textContent = `${Math.floor(pct)}%`;
 }
 
 function renderEntry() {
