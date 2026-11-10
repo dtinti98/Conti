@@ -261,6 +261,12 @@ svg { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2
 }
 .cal-day small { font-size: 10px; font-weight: 600; color: var(--muted); height: 12px; }
 .cal-day.has small { color: #34c759; }
+/* colore del giorno rispetto alla media giornaliera */
+.cal-day.lv1 { background: rgba(255,69,58,.32); }
+.cal-day.lv2 { background: rgba(255,214,10,.24); }
+.cal-day.lv3 { background: rgba(52,199,89,.22); }
+.cal-day.lv4 { background: #1d7a3a; }
+.cal-day.lv1 small, .cal-day.lv2 small, .cal-day.lv3 small, .cal-day.lv4 small { color: rgba(255,255,255,.8); }
 .cal-day.today { background: var(--surface-2); }
 .cal-day.view { background: var(--text); color: #000; }
 .cal-day.view small { color: #333; }
@@ -297,7 +303,7 @@ svg { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2
 
 /* Selettore periodo */
 .seg { display: flex; background: var(--surface-2); border-radius: 12px; padding: 3px; gap: 3px; flex: none; }
-.seg button { flex: 1; padding: 8px 4px; border-radius: 9px; font-size: 14px; font-weight: 600; color: var(--muted); }
+.seg button { flex: 1; padding: 8px 2px; border-radius: 9px; font-size: 13px; font-weight: 600; color: var(--muted); }
 .seg button.on { background: #3a3a3c; color: var(--text); }
 .period-nav { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; font-weight: 600; }
 .period-nav span { text-transform: capitalize; }
@@ -442,6 +448,27 @@ html { background: #000; }
 .choice-buttons { display: flex; flex-direction: column; gap: 8px; }
 .choice-buttons button { min-height: 48px; font-size: 16px; }
 .choice-buttons .text-btn { min-height: 40px; color: var(--muted); font-weight: 600; }
+
+/* Legenda colori del calendario */
+.cal-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 10px; font-size: 11px; color: var(--muted); }
+.cal-legend span { display: inline-flex; align-items: center; gap: 4px; }
+.cal-legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.cal-legend .avg { width: 100%; text-align: center; justify-content: center; }
+
+/* Statistiche: confronto, previsione, ore e giorni */
+.cmp { text-align: center; font-size: 13px; font-weight: 600; margin: -2px 0 4px; }
+.cmp.up { color: #32d74b; } .cmp.down { color: #ff9f0a; } .cmp.same { color: var(--muted); }
+.cmp small { color: var(--muted); font-weight: 500; }
+.stat-note { font-size: 13px; color: var(--muted); text-align: center; margin: 6px 0 0; }
+.stat-note b { color: var(--text); }
+.forecast { background: var(--surface-2); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+.forecast .fc-big { font-family: var(--font-num); font-size: 30px; font-weight: 700; text-align: center; }
+.forecast .fc-big small { display: block; font-size: 12px; font-weight: 600; color: var(--muted); font-family: var(--font); }
+.forecast .fc-days { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-radius: 12px; background: rgba(255,255,255,.05); font-size: 14px; font-weight: 600; }
+.forecast .fc-days span:last-child { display: inline-flex; gap: 5px; align-items: center; color: #ffd60a; }
+.forecast .fc-goal { font-size: 13px; text-align: center; color: var(--muted); }
+.forecast .fc-goal b { color: var(--text); }
+.forecast .fc-goal.ok b { color: #32d74b; }
 
 /* Finestra di conferma */
 .dialog { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 24px; background: rgba(0,0,0,.6); animation: fade .15s ease-out; }

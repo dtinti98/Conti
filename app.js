@@ -26,7 +26,7 @@ const ROW_H = 38;                 // altezza riga della rotella
 const DURATA_ANNULLA_MS = 4000;  // per quanto resta il popup "Annulla" dopo un inserimento
 
 /* ===================== Dati ===================== */
-const emptyDb = () => ({ v: 1, payments: [], fuel: {}, shifts: {}, notes: {}, goals: {}, lastBackup: null, methods: null, oldMethods: {}, settings: {} });
+const emptyDb = () => ({ v: 1, payments: [], fuel: {}, shifts: {}, notes: {}, goals: {}, workdays: {}, lastBackup: null, methods: null, oldMethods: {}, settings: {} });
 function load() {
   let d = null;
   try {
@@ -40,6 +40,7 @@ function load() {
   if (!d.settings || typeof d.settings !== 'object') d.settings = {};
   if (!d.notes || typeof d.notes !== 'object') d.notes = {};   // note della giornata
   if (!d.goals || typeof d.goals !== 'object') d.goals = {};   // spese mensili da coprire
+  if (!d.workdays || typeof d.workdays !== 'object') d.workdays = {};   // giorni di lavoro previsti per mese
   return d;
 }
 function save() {
@@ -327,7 +328,7 @@ function openKeypad(opts) {
 }
 function updateKeypadPreview() {
   if (!kp) return;
-  $('keypadPreview').textContent = kp.euro ? fmtEuro(kp.get()) : `${fmtCents(kp.get())} €`;
+  $('keypadPreview').textContent = kp.fmt ? kp.fmt(kp.get()) : kp.euro ? fmtEuro(kp.get()) : `${fmtCents(kp.get())} €`;
   // pulsantino nota: solo per l'importo di una corsa (non per la benzina)
   $('keypadNote').hidden = !kp.note;
   if (kp.note) $('keypadNote').classList.toggle('on', !!kp.note.get());
@@ -973,6 +974,14 @@ function renderCal() {
   $('calTitle').textContent = new Date(y, m, 1).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
   const totals = {};
   db.payments.forEach(p => { totals[p.day] = (totals[p.day] || 0) + p.cents; });
+  // 8) colore di ogni giorno rispetto alla media giornaliera (esclusa la giornata in corso)
+  const past = Object.keys(totals).filter(k => k !== todayKey());
+  const avgDay = past.length >= 3 ? past.reduce((t, k) => t + totals[k], 0) / past.length : 0;
+  const level = k => {
+    if (!avgDay || !totals[k] || k === todayKey()) return '';
+    const r = totals[k] / avgDay;
+    return r < 0.7 ? 'lv1' : r < 0.9 ? 'lv2' : r <= 1.25 ? 'lv3' : 'lv4';
+  };
   // giorni con almeno una nota (su una corsa o sulla giornata): pallino tipo notifica
   const noted = new Set([...db.payments.filter(p => p.note).map(p => p.day), ...Object.keys(db.notes)]);
   const first = new Date(y, m, 1);
@@ -982,10 +991,14 @@ function renderCal() {
   let h = '<span></span>'.repeat(lead);
   for (let d = 1; d <= nDays; d++) {
     const k = ymd(new Date(y, m, d));
-    const cls = ['cal-day', totals[k] ? 'has' : '', k === today ? 'today' : '', k === viewDay ? 'view' : '', k > today ? 'future' : '', noted.has(k) ? 'noted' : ''].join(' ');
+    const cls = ['cal-day', totals[k] ? 'has' : '', k === today ? 'today' : '', k === viewDay ? 'view' : '', k > today ? 'future' : '', noted.has(k) ? 'noted' : '', level(k)].join(' ');
     h += `<button class="${cls}" data-k="${k}" ${k > today ? 'disabled' : ''}>${d}<small>${totals[k] ? fmtShort(totals[k]) : ''}</small></button>`;
   }
   $('calGrid').innerHTML = h;
+  $('calLegend').hidden = !avgDay;
+  if (avgDay) $('calLegend').innerHTML = `<span class="avg">Media giornaliera ${fmtEuroInt(avgDay)}</span>
+    <span><i style="background:rgba(255,69,58,.6)"></i>molto sotto</span><span><i style="background:rgba(255,214,10,.55)"></i>sotto</span>
+    <span><i style="background:rgba(52,199,89,.5)"></i>in media</span><span><i style="background:#1d7a3a"></i>molto sopra</span>`;
   renderCalGoal();
 }
 function renderCalGoal() {
@@ -1042,12 +1055,13 @@ $('todayBtn').addEventListener('click', () => { viewDay = todayKey(); renderAll(
 /* ===================== Selettore periodo ===================== */
 function PeriodPicker(container, defaultMode, onChange) {
   const st = { mode: defaultMode, anchor: todayKey(), from: addDays(todayKey(), -6), to: todayKey() };
-  const modes = [['day', 'Giorno'], ['week', 'Settimana'], ['month', 'Mese'], ['range', 'Periodo']];
+  const modes = [['day', 'Giorno'], ['week', 'Settimana'], ['month', 'Mese'], ['year', 'Anno'], ['range', 'Periodo']];
   function range() {
     const a = parseYmd(st.anchor);
     if (st.mode === 'day') return [st.anchor, st.anchor];
     if (st.mode === 'week') { const mon = addDays(st.anchor, -((a.getDay() + 6) % 7)); return [mon, addDays(mon, 6)]; }
     if (st.mode === 'month') return [ymd(new Date(a.getFullYear(), a.getMonth(), 1)), ymd(new Date(a.getFullYear(), a.getMonth() + 1, 0))];
+    if (st.mode === 'year') return [`${a.getFullYear()}-01-01`, `${a.getFullYear()}-12-31`];
     return st.from <= st.to ? [st.from, st.to] : [st.to, st.from];
   }
   function label() {
@@ -1055,11 +1069,13 @@ function PeriodPicker(container, defaultMode, onChange) {
     const short = k => parseYmd(k).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
     if (st.mode === 'day') return parseYmd(f).toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
     if (st.mode === 'week') return `${short(f)} – ${short(t)} ${parseYmd(t).getFullYear()}`;
+    if (st.mode === 'year') return String(parseYmd(f).getFullYear());
     return parseYmd(f).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
   }
   function shift(dir) {
     if (st.mode === 'day') st.anchor = addDays(st.anchor, dir);
     else if (st.mode === 'week') st.anchor = addDays(st.anchor, 7 * dir);
+    else if (st.mode === 'year') { const a = parseYmd(st.anchor); st.anchor = ymd(new Date(a.getFullYear() + dir, 0, 1)); }
     else { const a = parseYmd(st.anchor); st.anchor = ymd(new Date(a.getFullYear(), a.getMonth() + dir, 1)); }
     render(); onChange();
   }
@@ -1085,10 +1101,195 @@ function PeriodPicker(container, defaultMode, onChange) {
     if (f && e.target.value) { st[f] = e.target.value; onChange(); }
   });
   render();
-  return { range, render, reset() { st.anchor = todayKey(); render(); } };
+  return { range, render, mode: () => st.mode, reset() { st.anchor = todayKey(); render(); } };
 }
 
 /* ===================== Statistiche ===================== */
+const GIORNI = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
+const GIORNI_LUNGHI = ['lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato', 'domenica'];
+const weekdayOf = day => (parseYmd(day).getDay() + 6) % 7;            // lunedì = 0
+const daysBetween = (a, b) => Math.round((parseYmd(b) - parseYmd(a)) / 86400000);
+const fmtEuroInt = c => fmtEuro(Math.round(c / 100) * 100);       // arrotondato all'euro
+const workedDaysIn = (from, to) => [...new Set(paymentsBetween(from, to).map(p => p.day))];
+
+// 3) Confronto con il periodo precedente. Se il periodo è in corso si confronta
+//    "allo stesso punto" (es. 1–10 novembre con 1–10 ottobre).
+function comparison(mode, from, to) {
+  const today = todayKey();
+  let cur = [from, to], prev, label;
+  const live = from <= today && today <= to;
+  if (mode === 'day') {
+    if (from === today) return null;            // giornata in corso: il confronto non avrebbe senso
+    const days = workedDaysIn(addDays(from, -28), addDays(from, -1));
+    if (!days.length) return null;
+    const avg = sum(paymentsBetween(addDays(from, -28), addDays(from, -1))) / days.length;
+    return { now: sum(paymentsOf(from)), before: avg, label: 'rispetto alla tua media giornaliera' };
+  }
+  if (mode === 'week') {
+    prev = [addDays(from, -7), addDays(to, -7)];
+    label = live ? 'rispetto allo stesso punto della settimana prima' : 'rispetto alla settimana prima';
+  } else if (mode === 'month') {
+    const a = parseYmd(from);
+    const pf = ymd(new Date(a.getFullYear(), a.getMonth() - 1, 1)), pt = ymd(new Date(a.getFullYear(), a.getMonth(), 0));
+    prev = [pf, pt];
+    const pm = parseYmd(pf).toLocaleDateString('it-IT', { month: 'long' });
+    label = live ? `rispetto agli stessi giorni di ${pm}` : `rispetto a ${pm}`;
+  } else if (mode === 'year') {
+    const y = parseYmd(from).getFullYear() - 1;
+    prev = [`${y}-01-01`, `${y}-12-31`];
+    label = live ? `rispetto allo stesso punto del ${y}` : `rispetto al ${y}`;
+  } else {
+    const n = daysBetween(from, to) + 1;
+    prev = [addDays(from, -n), addDays(from, -1)];
+    label = `rispetto ai ${n} giorni prima`;
+  }
+  if (live) {
+    // periodo in corso: confronto fino a ieri (la giornata in corso falserebbe la percentuale)
+    if (from === today) return null;
+    const n = daysBetween(from, today) - 1;
+    cur = [from, addDays(today, -1)];
+    const cut = addDays(prev[0], n);
+    prev = [prev[0], cut < prev[1] ? cut : prev[1]];
+  }
+  const before = sum(paymentsBetween(prev[0], prev[1]));
+  if (!before) return null;
+  return { now: sum(paymentsBetween(cur[0], cur[1])), before, label };
+}
+function comparisonHtml(c) {
+  if (!c) return '';
+  const pct = Math.round((c.now - c.before) / c.before * 100);
+  const cls = pct > 0 ? 'up' : pct < 0 ? 'down' : 'same';
+  const arrow = pct > 0 ? '▲' : pct < 0 ? '▼' : '=';
+  return `<div class="cmp ${cls}">${arrow} ${pct > 0 ? '+' : ''}${pct}% ${c.label} <small>(${fmtEuroInt((c.before))})</small></div>`;
+}
+
+// 1) Ore che rendono di più: € incassati per ogni ora di lavoro, in media sui giorni lavorati
+const ORDINE_ORE = [...Array(24)].map((_, i) => (i + ORA_CAMBIO_GIORNO) % 24);   // dalle 4 alle 3 di notte
+function hoursStats(days, ps) {
+  const cents = Array(24).fill(0), worked = Array(24).fill(0);
+  ps.forEach(p => { cents[new Date(p.ts).getHours()] += p.cents; });
+  days.forEach(d => {
+    const hr = hourlyOf(d);
+    if (!hr) return;
+    for (let h = 0; h < 24; h++) {
+      const st = tsFromDayTime(d, `${pad2(h)}:00`), en = st + 3600000;
+      const ov = Math.min(en, hr.end) - Math.max(st, hr.start);
+      if (ov > 0) worked[h] += ov / 3600000;    // quanta parte di quell'ora hai lavorato
+    }
+  });
+  const rows = ORDINE_ORE.map(h => ({ h, perHour: worked[h] >= 0.25 ? cents[h] / worked[h] : null }));
+  const used = rows.map((r, i) => (r.perHour !== null ? i : -1)).filter(i => i >= 0);
+  if (!used.length) return null;
+  return rows.slice(used[0], used[used.length - 1] + 1);
+}
+// Barre semplici, una per voce (centesimi); la barra "hi" è evidenziata in giallo
+function simpleBars(items, width, opts = {}) {
+  const H = 170, top = 22, bottom = 24, W = Math.max(260, width);
+  const max = Math.max(...items.map(i => i.value || 0), 1);
+  const slot = W / items.length, bw = Math.max(4, Math.min(30, slot * 0.68));
+  const every = opts.every || 1;
+  let svg = `<svg class="chart" viewBox="0 0 ${W} ${H}">`;
+  svg += `<line x1="0" x2="${W}" y1="${top}" y2="${top}" stroke="rgba(255,255,255,.14)" stroke-dasharray="3 4"/>`;
+  svg += `<text x="0" y="${top - 7}">max ${fmtEuroInt(max)}${opts.unit || ''}</text>`;
+  svg += `<line x1="0" x2="${W}" y1="${H - bottom}" y2="${H - bottom}" stroke="rgba(255,255,255,.14)"/>`;
+  items.forEach((it, i) => {
+    const x = i * slot + (slot - bw) / 2;
+    if (it.value) {
+      const bh = it.value / max * (H - top - bottom);
+      svg += `<rect x="${x}" y="${H - bottom - bh}" width="${bw}" height="${Math.max(bh, 1)}" rx="3" fill="${it.hi ? '#ffd60a' : 'rgba(255,255,255,.35)'}"/>`;
+    }
+    if (i % every === 0) svg += `<text x="${x + bw / 2}" y="${H - 7}" text-anchor="middle">${it.label}</text>`;
+  });
+  return svg + '</svg>';
+}
+function hoursBlock(days, ps, width) {
+  const rows = hoursStats(days, ps);
+  if (!rows) return '';
+  const best = rows.reduce((a, b) => ((b.perHour || 0) > (a.perHour || 0) ? b : a));
+  const items = rows.map(r => ({ label: String(r.h), value: r.perHour, hi: r === best }));
+  return `<div class="section-label">Ore che rendono di più</div>`
+    + simpleBars(items, width, { unit: '/h', every: rows.length > 12 ? 2 : 1 })
+    + `<p class="stat-note">Ora migliore: <b>${pad2(best.h)}–${pad2((best.h + 1) % 24)}</b> · ${fmtEuroInt((best.perHour))} all'ora in media</p>`;
+}
+
+// 2) Giorni della settimana: incasso medio e media oraria per ogni giorno
+function weekdayBlock(days, ps, width) {
+  const stats = GIORNI.map((_, i) => {
+    const ds = days.filter(d => weekdayOf(d) === i);
+    if (!ds.length) return { n: 0 };
+    const tot = sum(ps.filter(p => ds.includes(p.day)));
+    const hours = ds.reduce((t, d) => t + hourlyOf(d).hours, 0);
+    return { n: ds.length, avg: tot / ds.length, perHour: tot / hours };
+  });
+  if (stats.filter(x => x.n).length < 2) return '';
+  const best = stats.reduce((a, b, i) => ((b.avg || 0) > (stats[a].avg || 0) ? i : a), 0);
+  const bh = stats.reduce((a, b, i) => ((b.perHour || 0) > (stats[a].perHour || 0) ? i : a), 0);
+  const items = stats.map((x, i) => ({ label: GIORNI[i], value: x.avg || null, hi: i === best }));
+  return `<div class="section-label">Giorni della settimana</div>`
+    + simpleBars(items, width)
+    + `<p class="stat-note">Incasso medio più alto: <b>${GIORNI_LUNGHI[best]}</b> · ${fmtEuroInt((stats[best].avg))}<br>
+       Media oraria più alta: <b>${GIORNI_LUNGHI[bh]}</b> · ${fmtEuroInt((stats[bh].perHour))}/h</p>`;
+}
+
+// 4) Previsione di fine mese (solo per il mese in corso)
+function plannedWorkdays(m) {
+  if (db.workdays[m]) return { n: db.workdays[m], set: true };
+  const a = parseYmd(m + '-01');
+  const pf = ymd(new Date(a.getFullYear(), a.getMonth() - 1, 1)), pt = ymd(new Date(a.getFullYear(), a.getMonth(), 0));
+  const last = workedDaysIn(pf, pt).length;
+  return { n: last || 22, set: false };          // stima: i giorni lavorati il mese scorso
+}
+function forecastBlock(m) {
+  const today = todayKey();
+  if (monthOf(today) !== m) return '';
+  const from = m + '-01', ps = paymentsBetween(from, today), worked = workedDaysIn(from, today).length;
+  if (!worked) return '';
+  const total = sum(ps), avgDay = total / worked;
+  const plan = plannedWorkdays(m), remaining = Math.max(0, plan.n - worked);
+  const projected = total + remaining * avgDay;
+  const t = parseYmd(today), monthEnd = new Date(t.getFullYear(), t.getMonth() + 1, 0).getDate();
+  const todayWorked = paymentsOf(today).length > 0;
+  const calLeft = monthEnd - t.getDate() + (todayWorked ? 0 : 1);   // giorni di calendario ancora disponibili
+  let goalHtml = '';
+  const goal = goalFor(m);
+  if (goal) {
+    if (total >= goal) goalHtml = `<div class="fc-goal ok"><b>Spese già coperte ✓</b></div>`;
+    else {
+      const need = goal - total, daysNeeded = Math.ceil(need / avgDay);
+      if (daysNeeded > remaining) {
+        goalHtml = `<div class="fc-goal">A questo ritmo per coprire le spese (${fmtEuro(goal)}) mancherebbero circa <b>${fmtEuroInt((goal - projected))}</b></div>`;
+      } else {
+        // i giorni di lavoro rimasti, distribuiti sui giorni di calendario rimasti
+        const ahead = Math.max(1, Math.ceil(daysNeeded * calLeft / Math.max(remaining, 1))) - (todayWorked ? 0 : 1);
+        const lbl = parseYmd(addDays(today, ahead)).toLocaleDateString('it-IT', { day: 'numeric', month: 'long' });
+        goalHtml = `<div class="fc-goal">Le spese (${fmtEuro(goal)}) le copri verso il <b>${lbl}</b></div>`;
+      }
+    }
+  }
+  return `<div class="section-label">Previsione di fine mese</div>
+    <div class="forecast">
+      <div class="fc-big">≈ ${fmtEuro(Math.round(projected / 1000) * 1000)}<small>a questo ritmo (${fmtEuroInt((avgDay))} per giorno lavorato)</small></div>
+      <button class="fc-days" id="fcDays"><span>Giorni di lavoro questo mese</span><span>${plan.n}${plan.set ? '' : ' (stima)'} · fatti ${worked} ${penSvg}</span></button>
+      ${goalHtml}
+    </div>`;
+}
+$('statsBody').addEventListener('click', e => {
+  if (!e.target.closest('#fcDays')) return;
+  const m = monthOf(todayKey());
+  let n = plannedWorkdays(m).n;
+  openKeypad({
+    title: `Giorni di lavoro a ${monthName(m)}`, euro: true,
+    get: () => n * 100,
+    set: v => { n = Math.min(31, Math.round(v / 100)); },
+    fmt: v => `${Math.round(v / 100)} giorni`,
+    onDone: () => {
+      if (n) db.workdays[m] = n; else delete db.workdays[m];   // 0 = torna alla stima
+      save();
+      renderStats();
+    },
+  });
+});
+
 const statsPicker = PeriodPicker($('statsPicker'), 'week', renderStats);
 function renderStats() {
   const [from, to] = statsPicker.range();
@@ -1102,7 +1303,8 @@ function renderStats() {
   }
   const total = sum(ps);
   const workedDays = [...new Set(ps.map(p => p.day))];
-  let h = `<div class="big-total">${fmtEuro(total)}</div>`;
+  const mode = statsPicker.mode(), w = (body.clientWidth || 358) - 32;
+  let h = `<div class="big-total">${fmtEuro(total)}</div>` + comparisonHtml(comparison(mode, from, to));
   if (from === to) {
     const hr = hourlyOf(from);
     const fuel = db.fuel[from] || 0;
@@ -1124,8 +1326,18 @@ function renderStats() {
       <div class="kpi"><b>${ps.length}</b><span>${labelCorse()}</span></div>
       <div class="kpi"><b>${fmtEuro(best.c)}</b><span>miglior giorno (${fmtDate(best.d).slice(0, 5)})</span></div>
       <div class="kpi"><b>${fuel ? fmtEuro(fuel) : '—'}</b><span>benzina</span></div></div>` + paxKpis(ps);
-    h += `<div class="section-label">Andamento</div>` + barChart(from, to, ps, (body.clientWidth || 358) - 32);
+    h += `<div class="section-label">Andamento</div>` + barChart(from, to, ps, w);
+    if (mode === 'year') {                      // 9) vista anno: mese migliore e media al mese
+      const months = [...new Set(ps.map(p => p.day.slice(0, 7)))];
+      const tots = months.map(m => ({ m, c: sum(ps.filter(p => p.day.startsWith(m))) }));
+      const bm = tots.reduce((a, b) => (b.c > a.c ? b : a));
+      h += `<p class="stat-note">Mese migliore: <b>${monthName(bm.m)}</b> · ${fmtEuro(bm.c)}<br>
+        Media al mese: <b>${fmtEuroInt((total / months.length))}</b> (${months.length} ${months.length === 1 ? 'mese' : 'mesi'} con corse)</p>`;
+    }
+    if (mode === 'month') h += forecastBlock(from.slice(0, 7));
   }
+  h += hoursBlock(workedDays, ps, w);
+  if (mode === 'month' || mode === 'year' || mode === 'range') h += weekdayBlock(workedDays, ps, w);
   h += `<div class="section-label">Per metodo</div>` + donut(ps) + methodBlock(ps);
   body.innerHTML = h;
 }
@@ -1238,7 +1450,7 @@ function renderBackupInfo() {
 }
 $('menuBtn').addEventListener('click', () => { renderBackupInfo(); openSheet($('menuSheet')); });
 $('backupBtn').addEventListener('click', async () => {
-  const data = { app: 'AppConti', v: 1, exportedAt: new Date().toISOString(), payments: db.payments, fuel: db.fuel, shifts: db.shifts, notes: db.notes, goals: db.goals, methods: db.methods, oldMethods: db.oldMethods, settings: db.settings };
+  const data = { app: 'AppConti', v: 1, exportedAt: new Date().toISOString(), payments: db.payments, fuel: db.fuel, shifts: db.shifts, notes: db.notes, goals: db.goals, workdays: db.workdays, methods: db.methods, oldMethods: db.oldMethods, settings: db.settings };
   const ok = await shareFile(`conti-backup-${todayKey()}.json`, JSON.stringify(data), 'application/json');
   if (ok) { db.lastBackup = Date.now(); save(); renderBackupInfo(); }
 });
@@ -1259,6 +1471,7 @@ $('restoreInput').addEventListener('change', async e => {
     db.shifts = d.shifts && typeof d.shifts === 'object' ? d.shifts : {};
     db.notes = d.notes && typeof d.notes === 'object' ? d.notes : {};
     db.goals = d.goals && typeof d.goals === 'object' ? d.goals : {};
+    db.workdays = d.workdays && typeof d.workdays === 'object' ? d.workdays : {};
     if (d.settings && typeof d.settings === 'object') { db.settings = d.settings; applySettings(); }
     const validM = Array.isArray(d.methods) && d.methods.length &&
       d.methods.every(m => m && typeof m.nome === 'string' && /^#[0-9a-f]{6}$/i.test(m.colore) && /^#[0-9a-f]{6}$/i.test(m.bordo));
