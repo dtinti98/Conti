@@ -182,6 +182,7 @@ function setGoal(m, cents, onward) {
   db.goals[m] = cents;
 }
 const monthTotal = m => sum(db.payments.filter(p => p.day.startsWith(m)));
+const aMese = name => (/^[aeiou]/i.test(name) ? 'ad ' : 'a ') + name;   // "ad ottobre", "a novembre"
 const monthName = m => parseYmd(m + '-01').toLocaleDateString('it-IT', { month: 'long' });
 
 /* ===================== Stato UI ===================== */
@@ -357,7 +358,11 @@ document.querySelectorAll('.keypad button').forEach(b => b.addEventListener('cli
   const v = Math.floor(kp.get() / unit);
   if (k === 'C') kp.set(0);
   else if (k === 'B') kp.set(Math.floor(v / 10) * unit);
-  else { const n = (v * 10 + Number(k)) * unit; if (n <= MAX_CENTS) kp.set(n); }
+  else {
+    let n = (v * 10 + Number(k)) * unit;
+    if (kp.max && n / unit > kp.max) n = Number(k) * unit;   // es. giorni (max 31): si riparte dalla cifra
+    if (n <= MAX_CENTS) kp.set(n);
+  }
   updateKeypadPreview();
 }));
 $('keypadDone').addEventListener('click', () => closeSheet($('keypadSheet')));
@@ -1133,7 +1138,7 @@ function comparison(mode, from, to) {
     const pf = ymd(new Date(a.getFullYear(), a.getMonth() - 1, 1)), pt = ymd(new Date(a.getFullYear(), a.getMonth(), 0));
     prev = [pf, pt];
     const pm = parseYmd(pf).toLocaleDateString('it-IT', { month: 'long' });
-    label = live ? `rispetto agli stessi giorni di ${pm}` : `rispetto a ${pm}`;
+    label = live ? `rispetto agli stessi giorni di ${pm}` : `rispetto ${aMese(pm)}`;
   } else if (mode === 'year') {
     const y = parseYmd(from).getFullYear() - 1;
     prev = [`${y}-01-01`, `${y}-12-31`];
@@ -1245,11 +1250,11 @@ function forecastBlock(m) {
   const from = m + '-01', ps = paymentsBetween(from, today), worked = workedDaysIn(from, today).length;
   if (!worked) return '';
   const total = sum(ps), avgDay = total / worked;
-  const plan = plannedWorkdays(m), remaining = Math.max(0, plan.n - worked);
-  const projected = total + remaining * avgDay;
   const t = parseYmd(today), monthEnd = new Date(t.getFullYear(), t.getMonth() + 1, 0).getDate();
   const todayWorked = paymentsOf(today).length > 0;
   const calLeft = monthEnd - t.getDate() + (todayWorked ? 0 : 1);   // giorni di calendario ancora disponibili
+  const plan = plannedWorkdays(m), remaining = Math.max(0, Math.min(plan.n - worked, calLeft));
+  const projected = total + remaining * avgDay;
   let goalHtml = '';
   const goal = goalFor(m);
   if (goal) {
@@ -1278,10 +1283,10 @@ $('statsBody').addEventListener('click', e => {
   const m = monthOf(todayKey());
   let n = plannedWorkdays(m).n;
   openKeypad({
-    title: `Giorni di lavoro a ${monthName(m)}`, euro: true,
+    title: `Giorni di lavoro ${aMese(monthName(m))}`, euro: true, max: 31,
     get: () => n * 100,
-    set: v => { n = Math.min(31, Math.round(v / 100)); },
-    fmt: v => `${Math.round(v / 100)} giorni`,
+    set: v => { n = Math.round(v / 100); },
+    fmt: v => { const g = Math.round(v / 100); return `${g} ${g === 1 ? 'giorno' : 'giorni'}`; },
     onDone: () => {
       if (n) db.workdays[m] = n; else delete db.workdays[m];   // 0 = torna alla stima
       save();
