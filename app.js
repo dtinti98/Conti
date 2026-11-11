@@ -1218,19 +1218,33 @@ function comparisonHtml(c) {
 
 // 1) Ore che rendono di più: € incassati per ogni ora di lavoro, in media sui giorni lavorati
 const ORDINE_ORE = [...Array(24)].map((_, i) => (i + ORA_CAMBIO_GIORNO) % 24);   // dalle 4 alle 3 di notte
+// Ogni corsa si registra a fine corsa: il suo incasso viene distribuito sul tempo che l'ha prodotta,
+// cioè dalla corsa precedente (o dall'inizio del turno) fino alla registrazione. Così l'ultima ora
+// del turno non riceve tutto l'incasso in pochi minuti.
 function hoursStats(days, ps) {
   const cents = Array(24).fill(0), worked = Array(24).fill(0);
-  ps.forEach(p => { cents[new Date(p.ts).getHours()] += p.cents; });
+  const slotOf = (d, h) => tsFromDayTime(d, `${pad2(h)}:00`);
+  // aggiunge "amount" alla fascia oraria in proporzione al tempo [t0, t1] che cade in ciascuna ora
+  const spread = (d, t0, t1, add) => {
+    for (let h = 0; h < 24; h++) {
+      const st = slotOf(d, h), ov = Math.min(st + 3600000, t1) - Math.max(st, t0);
+      if (ov > 0) add(h, ov);
+    }
+  };
   days.forEach(d => {
     const hr = hourlyOf(d);
     if (!hr) return;
-    for (let h = 0; h < 24; h++) {
-      const st = tsFromDayTime(d, `${pad2(h)}:00`), en = st + 3600000;
-      const ov = Math.min(en, hr.end) - Math.max(st, hr.start);
-      if (ov > 0) worked[h] += ov / 3600000;    // quanta parte di quell'ora hai lavorato
-    }
+    spread(d, hr.start, hr.end, (h, ov) => { worked[h] += ov / 3600000; });   // ore lavorate per fascia
+    let prev = hr.start;
+    ps.filter(p => p.day === d).sort(byTs).forEach(p => {
+      const t0 = Math.min(prev, p.ts), len = p.ts - t0;
+      if (len < 60000) cents[new Date(p.ts).getHours()] += p.cents;          // registrata nello stesso minuto
+      else spread(d, t0, p.ts, (h, ov) => { cents[h] += p.cents * ov / len; });
+      prev = Math.max(prev, p.ts);
+    });
   });
-  const rows = ORDINE_ORE.map(h => ({ h, perHour: worked[h] >= 0.25 ? cents[h] / worked[h] : null }));
+  // una fascia compare solo con almeno mezz'ora di lavoro in totale (pochi minuti darebbero valori assurdi)
+  const rows = ORDINE_ORE.map(h => ({ h, perHour: worked[h] >= 0.5 ? cents[h] / worked[h] : null }));
   const used = rows.map((r, i) => (r.perHour !== null ? i : -1)).filter(i => i >= 0);
   if (!used.length) return null;
   return rows.slice(used[0], used[used.length - 1] + 1);
