@@ -378,6 +378,7 @@ function renderTop() {
   $('fuelBtn').classList.toggle('empty', !fuel);
   $('totVal').textContent = fmtEuro(sum(paymentsOf(viewDay)));
   renderShiftBtn();
+  renderPaceArrow();
 }
 
 function renderEntry() {
@@ -877,7 +878,7 @@ function renderTotSheet() {
     <div class="kpi"><b>${ps.length}</b><span>${labelCorse()}</span></div>
     <div class="kpi"><b>${hr ? fmtEuro(Math.round(hr.perHour)) : '—'}</b><span>media oraria</span></div>
     <div class="kpi"><b>${hr ? fmtHours(hr.hours) : '—'}</b><span>ore</span></div>
-  </div>` + paxKpis(ps);
+  </div>` + paxKpis(ps) + paceNoteHtml(viewDay);
   // Inizio/fine con la stessa icona dello schermo principale (taxi / bandierina);
   // orologio se l'orario è calcolato in automatico
   if (hr) h += `<button class="shift-note" id="totShift">
@@ -1107,6 +1108,50 @@ function PeriodPicker(container, defaultMode, onChange) {
   });
   render();
   return { range, render, mode: () => st.mode, reset() { st.anchor = todayKey(); render(); } };
+}
+
+/* ===================== Ritmo del giorno (freccia accanto al Tot) ===================== */
+// Ritmo = € all'ora del giorno, confrontato con la media oraria del mese (giorni lavorati, escluso questo).
+// A turno in corso le ore arrivano fino ad adesso, così il ritmo è giusto in ogni momento della serata.
+function paceOf(day) {
+  const ps = paymentsOf(day);
+  if (!ps.length) return null;
+  const hr = hourlyOf(day);
+  let hours = hr.hours;
+  if (day === todayKey() && openShiftDay() === day) hours = Math.max(hours, (Date.now() - hr.start) / 3600000);
+  if (hours < 0.5) return null;                       // troppo presto per dire qualcosa
+  const rate = sum(ps) / hours;
+  const m = monthOf(day), a = parseYmd(m + '-01');
+  const monthEnd = ymd(new Date(a.getFullYear(), a.getMonth() + 1, 0));
+  let ref = workedDaysIn(m + '-01', monthEnd).filter(d => d !== day && d !== todayKey());
+  let label = 'media del mese';
+  if (ref.length < 3) {                               // inizio mese: si usano gli ultimi 30 giorni
+    ref = workedDaysIn(addDays(day, -30), addDays(day, -1)).filter(d => d !== todayKey());
+    label = 'media degli ultimi 30 giorni';
+  }
+  if (ref.length < 3) return null;
+  const refCents = ref.reduce((t, d) => t + sum(paymentsOf(d)), 0);
+  const refHours = ref.reduce((t, d) => t + hourlyOf(d).hours, 0);
+  const refRate = refCents / refHours;
+  return { rate, refRate, ratio: rate / refRate, label };
+}
+// colore continuo: rosso (molto sotto) → giallo (in media) → verde (molto sopra)
+const paceColor = r => `hsl(${Math.max(0, Math.min(120, 60 + (r - 1) * 120))}, 85%, 55%)`;   // −50% rosso, media giallo, +50% verde
+function renderPaceArrow() {
+  const a = $('paceArrow'), p = paceOf(viewDay);
+  a.toggleAttribute('hidden', !p);   // è un'icona SVG: "hidden" va impostato come attributo
+  if (!p) return;
+  // dritta in media, inclinata fino a 60° (circa ±50% rispetto alla media)
+  const angle = Math.max(-60, Math.min(60, (1 - p.ratio) * 120));
+  a.style.transform = `rotate(${angle}deg)`;
+  a.style.color = paceColor(p.ratio);
+}
+function paceNoteHtml(day) {
+  const p = paceOf(day);
+  if (!p) return '';
+  const pct = Math.round((p.ratio - 1) * 100);
+  return `<p class="pace-note">Ritmo <b style="color:${paceColor(p.ratio)}">${fmtEuroInt(p.rate)}/h</b> · ${p.label} ${fmtEuroInt(p.refRate)}/h
+    (<b style="color:${paceColor(p.ratio)}">${pct > 0 ? '+' : ''}${pct}%</b>)</p>`;
 }
 
 /* ===================== Statistiche ===================== */
@@ -1855,6 +1900,7 @@ function checkDayChange() {
     renderAll();
   } else {
     // con "Media oraria effettiva" la media cambia col passare del tempo: aggiorna ciò che è aperto
+    renderPaceArrow();
     if ($('totSheet').classList.contains('open') && viewDay === t) renderTotSheet();
     if (db.settings.liveAvg && $('statsSheet').classList.contains('open')) {
       const [f, to] = statsPicker.range();
