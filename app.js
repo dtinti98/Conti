@@ -1113,6 +1113,7 @@ function PeriodPicker(container, defaultMode, onChange) {
 /* ===================== Ritmo del giorno (freccia accanto al Tot) ===================== */
 // Ritmo = € all'ora del giorno, confrontato con la media oraria del mese (giorni lavorati, escluso questo).
 // A turno in corso le ore arrivano fino ad adesso, così il ritmo è giusto in ogni momento della serata.
+// Primo giorno di lavoro del mese: si confronta con il mese passato.
 function paceOf(day) {
   const ps = paymentsOf(day);
   if (!ps.length) return null;
@@ -1123,13 +1124,15 @@ function paceOf(day) {
   const rate = sum(ps) / hours;
   const m = monthOf(day), a = parseYmd(m + '-01');
   const monthEnd = ymd(new Date(a.getFullYear(), a.getMonth() + 1, 0));
+  // riferimento: gli altri giorni lavorati del mese (basta anche uno: il 2° giorno si confronta col 1°)
   let ref = workedDaysIn(m + '-01', monthEnd).filter(d => d !== day && d !== todayKey());
-  let label = 'media del mese';
-  if (ref.length < 3) {                               // inizio mese: si usano gli ultimi 30 giorni
-    ref = workedDaysIn(addDays(day, -30), addDays(day, -1)).filter(d => d !== todayKey());
-    label = 'media degli ultimi 30 giorni';
+  let label = ref.length === 1 ? 'primo giorno del mese' : 'media del mese';
+  if (!ref.length) {                                  // primo giorno di lavoro del mese: mese passato
+    const pf = ymd(new Date(a.getFullYear(), a.getMonth() - 1, 1)), pt = ymd(new Date(a.getFullYear(), a.getMonth(), 0));
+    ref = workedDaysIn(pf, pt);
+    label = `media di ${monthName(pf.slice(0, 7))}`;
   }
-  if (ref.length < 3) return null;
+  if (!ref.length) return null;                       // nessun dato con cui confrontare
   const refCents = ref.reduce((t, d) => t + sum(paymentsOf(d)), 0);
   const refHours = ref.reduce((t, d) => t + hourlyOf(d).hours, 0);
   const refRate = refCents / refHours;
