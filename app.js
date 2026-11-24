@@ -126,7 +126,7 @@ const paymentsBetween = (from, to) => db.payments.filter(p => p.day >= from && p
 // i pagamenti salvati restano sempre all'importo pieno.
 const netOn = () => !!db.settings.netFees;
 function feeOf(p) {
-  const m = methodInfo(p.method);
+  const m = feeFields(methodInfo(p.method));   // solo valori validi (un backup rovinato non dà NaN)
   return Math.round(p.cents * (m.fee || 0) / 10000) + (m.feeFix || 0);
 }
 const shown = p => (netOn() ? Math.max(0, p.cents - feeOf(p)) : p.cents);
