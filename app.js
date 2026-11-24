@@ -1936,8 +1936,13 @@ function onToggleClick(e) {
   const key = t.dataset.setting;
   db.settings[key] = !setting(key);
   if (key === 'xl' && !db.settings.xl) entry.pax = null;
-  // appena acceso: non chiedere dei mesi già passati
-  if (key === 'posReminder' && db.settings.posReminder) { db.settings.posDone = posMonth(); delete db.settings.posSnooze; }
+  // appena acceso: non chiedere dei mesi già passati (ma se è la sera di chiusura, il popup arriva)
+  if (key === 'posReminder' && db.settings.posReminder) {
+    const d = parseYmd(todayKey());
+    db.settings.posDone = monthKey(new Date(d.getFullYear(), d.getMonth() - 1, 1));
+    delete db.settings.posSnooze;
+    setTimeout(checkPos, 400);
+  }
   save();
   renderToggles();
   renderAll();
@@ -1989,7 +1994,7 @@ function checkDayChange() {
    - L'ultimo giorno del mese dalle 23:30 (fino al cambio giornata delle 4:00), con l'app aperta:
      "Chiusura POS" con Fatto / Ricordami tra 15 minuti.
    - Se non è stato premuto Fatto, alla prima apertura successiva:
-     "Chiusura POS di <mese> effettuata?" con Sì / Non ancora (ritorna alla prossima apertura).
+     "Chiusura POS di <mese> effettuata?" con Sì / Ricordami tra un'ora.
    Un'app web chiusa non può mostrare nulla: il popup appare solo ad app aperta. */
 const POS_H = 23, POS_M = 30;
 const monthKey = d => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`;
@@ -1998,7 +2003,7 @@ function posMonth(now = new Date()) {
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0, POS_H, POS_M);
   return now >= lastDay ? monthKey(now) : monthKey(new Date(now.getFullYear(), now.getMonth() - 1, 1));
 }
-let posBusy = false, posSkip = false;          // posSkip: "Non ancora" → fino alla prossima apertura
+let posBusy = false;
 async function checkPos() {
   if (!db.settings.posReminder || posBusy || document.hidden) return;
   const now = new Date(), m = posMonth(now);
@@ -2006,8 +2011,8 @@ async function checkPos() {
   if (document.querySelector('.dialog:not([hidden])')) return;   // un'altra finestra è aperta: riprova dopo
   // sera di chiusura: dall'ultimo giorno alle 23:30 fino alle 4:00 (stessa giornata dell'app)
   const tonight = todayKey().slice(0, 7) === m;
+  if (Date.now() < (db.settings.posSnooze || 0)) return;          // "Ricordami tra…" ancora in corso
   if (tonight) {
-    if (Date.now() < (db.settings.posSnooze || 0)) return;
     posBusy = true;
     const ok = await ask('Chiusura POS', { ok: 'Fatto', cancel: 'Ricordami tra 15 minuti' });
     posBusy = false;
@@ -2015,18 +2020,18 @@ async function checkPos() {
     else db.settings.posSnooze = Date.now() + 15 * 60000;
     save();
   } else {
-    if (posSkip) return;
     posBusy = true;
-    const ok = await ask(`Chiusura POS di ${monthName(m)} effettuata?`, { ok: 'Sì', cancel: 'Non ancora' });
+    const ok = await ask(`Chiusura POS di ${monthName(m)} effettuata?`, { ok: 'Sì', cancel: 'Ricordami tra un\'ora' });
     posBusy = false;
-    if (ok) { db.settings.posDone = m; delete db.settings.posSnooze; save(); }
-    else posSkip = true;
+    if (ok) { db.settings.posDone = m; delete db.settings.posSnooze; }
+    else db.settings.posSnooze = Date.now() + 60 * 60000;
+    save();
   }
 }
 
 setInterval(() => { checkDayChange(); checkPos(); }, 30000);
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) { posSkip = false; return; }
+  if (document.hidden) return;
   checkDayChange();
   checkPos();
 });
