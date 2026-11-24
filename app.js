@@ -120,7 +120,17 @@ const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 
 const byTs = (a, b) => a.ts - b.ts;
 const paymentsOf = day => db.payments.filter(p => p.day === day).sort(byTs);
 const paymentsBetween = (from, to) => db.payments.filter(p => p.day >= from && p.day <= to).sort(byTs);
-const sum = ps => ps.reduce((s, p) => s + p.cents, 0);
+// Commissioni (Menu → Metodi di pagamento): fee = percentuale in centesimi di punto (250 = 2,5%),
+// feeFix = centesimi fissi per ogni pagamento. Assenti = nessuna commissione.
+// Con "Mostra al netto delle commissioni" (Impostazioni) tutti gli importi mostrati sono al netto;
+// i pagamenti salvati restano sempre all'importo pieno.
+const netOn = () => !!db.settings.netFees;
+function feeOf(p) {
+  const m = methodInfo(p.method);
+  return Math.round(p.cents * (m.fee || 0) / 10000) + (m.feeFix || 0);
+}
+const shown = p => (netOn() ? Math.max(0, p.cents - feeOf(p)) : p.cents);
+const sum = ps => ps.reduce((s, p) => s + shown(p), 0);
 
 function byMethod(ps) {
   const names = metodi().map(m => m.nome);
@@ -638,7 +648,7 @@ const wheel = $('wheel');
 let wheelItems = [], wheelKey = '', wheelSel = -1;
 function renderWheel(focusId) {
   const ps = paymentsOf(viewDay);
-  const key = viewDay + '|' + ps.map(p => p.id + p.cents + p.method).join(',');
+  const key = viewDay + '|' + ps.map(p => p.id + p.cents + p.method + ':' + shown(p)).join(',');
   $('wheelWrap').style.visibility = ps.length ? '' : 'hidden';
   if (key === wheelKey && !focusId) return;
   const prevId = wheelItems[wheelSel] && wheelItems[wheelSel].id;
@@ -649,7 +659,7 @@ function renderWheel(focusId) {
     const m = methodInfo(p.method);
     return `<div class="wheel-item" data-i="${i}">
       <svg class="pen" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4"/></svg>
-      <span>${fmtShort(p.cents)}</span><i class="dot" style="background:${m.bordo}"></i></div>`;
+      <span>${fmtShort(shown(p))}</span><i class="dot" style="background:${m.bordo}"></i></div>`;
   }).join('');
   let idx = ps.length - 1;                                  // di default il più recente
   const want = focusId || (sameDay ? prevId : null);
@@ -855,6 +865,8 @@ function paxKpis(ps) {
     <div class="kpi"><b>${n5}</b><span>da 5 ${personSvg}</span></div>
     <div class="kpi"><b>${n6}</b><span>da 6 ${personSvg}</span></div></div>`;
 }
+// scritta piccola sotto il totale quando gli importi sono al netto
+const netNote = () => (netOn() ? '<div class="net-note">al netto delle commissioni</div>' : '');
 const paxTag = p => (xlOn() && p.pax ? `<span class="pax-badge">${p.pax}${personSvg}</span>` : '');
 
 /* ===================== Riepilogo giornata (TOT) ===================== */
@@ -868,7 +880,7 @@ function renderTotSheet() {
   const arrows = !setting('swipeDay');
   $('totPrev').hidden = $('totNext').hidden = !arrows;
   $('totNext').disabled = viewDay >= todayKey();
-  let h = `<div class="big-total">${fmtEuro(total)}</div>`;
+  let h = `<div class="big-total">${fmtEuro(total)}</div>` + netNote();
   if (fuel) h += `<div class="fuel-note">${pumpSvg} Benzina messa: ${fmtEuro(fuel)}</div>`;
   const dayNote = db.notes[viewDay];
   h += dayNote
@@ -895,7 +907,7 @@ function renderTotSheet() {
     const m = methodInfo(p.method);
     return `<button class="prow" data-id="${p.id}"><span class="time">${fmtTime(p.ts)}</span>
       <i class="dot" style="background:${m.bordo}"></i><span>${esc(p.method)} ${paxTag(p)}${p.note ? `<small class="prow-note">${esc(p.note)}</small>` : ''}</span>
-      <span class="val">${fmtEuro(p.cents)}</span>${penSvg}</button>`;
+      <span class="val">${fmtEuro(shown(p))}</span>${penSvg}</button>`;
   }).join('') : `<div class="empty-msg">${xlOn() ? 'Nessuna corsa' : 'Nessun pagamento'}</div>`;
   h += `<button class="secondary-btn add-btn" id="totAdd">+ Aggiungi ${xlOn() ? 'corsa' : 'pagamento'}</button>`;
   $('totSheetBody').innerHTML = h;
@@ -979,7 +991,7 @@ function renderCal() {
   const { y, m } = calMonth;
   $('calTitle').textContent = new Date(y, m, 1).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
   const totals = {};
-  db.payments.forEach(p => { totals[p.day] = (totals[p.day] || 0) + p.cents; });
+  db.payments.forEach(p => { totals[p.day] = (totals[p.day] || 0) + shown(p); });
   // 8) colore di ogni giorno rispetto alla media giornaliera (esclusa la giornata in corso)
   const past = Object.keys(totals).filter(k => k !== todayKey());
   const avgDay = past.length >= 3 ? past.reduce((t, k) => t + totals[k], 0) / past.length : 0;
@@ -1238,8 +1250,8 @@ function hoursStats(days, ps) {
     let prev = hr.start;
     ps.filter(p => p.day === d).sort(byTs).forEach(p => {
       const t0 = Math.min(prev, p.ts), len = p.ts - t0;
-      if (len < 60000) cents[new Date(p.ts).getHours()] += p.cents;          // registrata nello stesso minuto
-      else spread(d, t0, p.ts, (h, ov) => { cents[h] += p.cents * ov / len; });
+      if (len < 60000) cents[new Date(p.ts).getHours()] += shown(p);          // registrata nello stesso minuto
+      else spread(d, t0, p.ts, (h, ov) => { cents[h] += shown(p) * ov / len; });
       prev = Math.max(prev, p.ts);
     });
   });
@@ -1371,7 +1383,7 @@ function renderStats() {
   const total = sum(ps);
   const workedDays = [...new Set(ps.map(p => p.day))];
   const mode = statsPicker.mode(), w = (body.clientWidth || 358) - 32;
-  let h = `<div class="big-total">${fmtEuro(total)}</div>` + comparisonHtml(comparison(mode, from, to));
+  let h = `<div class="big-total">${fmtEuro(total)}</div>` + netNote() + comparisonHtml(comparison(mode, from, to));
   if (from === to) {
     const hr = hourlyOf(from);
     const fuel = db.fuel[from] || 0;
@@ -1436,10 +1448,10 @@ function exportTable() {
   if (exp.kind === 'all') {
     // con Macchina XL c'è anche la colonna Persone (5 o 6; vuota = corsa normale)
     const xl = xlOn(), notes = ps.some(p => p.note);   // colonna Nota solo se nel periodo c'è almeno una nota
-    const rows = ps.map(p => [fmtDateFull(p.day), fmtTime(p.ts), p.method, plainNum(p.cents),
+    const rows = ps.map(p => [fmtDateFull(p.day), fmtTime(p.ts), p.method, plainNum(shown(p)),
       ...(xl ? [p.pax ? String(p.pax) : ''] : []), ...(notes ? [(p.note || '').replace(/\s+/g, ' ')] : [])]);
     rows.push(['Totale', '', '', plainNum(sum(ps)), ...(xl ? [''] : []), ...(notes ? [''] : [])]);
-    return { head: ['Data', 'Ora', 'Metodo', 'Importo', ...(xl ? ['Persone'] : []), ...(notes ? ['Nota'] : [])], rows };
+    return { head: ['Data', 'Ora', 'Metodo', netOn() ? 'Importo netto' : 'Importo', ...(xl ? ['Persone'] : []), ...(notes ? ['Nota'] : [])], rows };
   }
   const names = byMethod(ps).filter(m => m.cents > 0 || metodi().some(x => x.nome === m.nome)).map(m => m.nome);
   const days = [...new Set([...ps.map(p => p.day), ...Object.keys(db.fuel).filter(k => k >= from && k <= to)])].sort();
@@ -1451,7 +1463,7 @@ function exportTable() {
     let fuel = 0; days.forEach(d => { fuel += db.fuel[d] || 0; });
     rows.push(['Totale', ...names.map(n => plainNum(sum(ps.filter(p => p.method === n)))), plainNum(sum(ps)), plainNum(fuel)]);
   }
-  return { head: ['Data', ...names, 'Totale', 'Benzina'], rows };
+  return { head: ['Data', ...names, netOn() ? 'Totale netto' : 'Totale', 'Benzina'], rows };
 }
 function exportText(sep) {
   const { head, rows } = exportTable();
@@ -1542,7 +1554,7 @@ $('restoreInput').addEventListener('change', async e => {
     if (d.settings && typeof d.settings === 'object') { db.settings = d.settings; applySettings(); }
     const validM = Array.isArray(d.methods) && d.methods.length &&
       d.methods.every(m => m && typeof m.nome === 'string' && /^#[0-9a-f]{6}$/i.test(m.colore) && /^#[0-9a-f]{6}$/i.test(m.bordo));
-    if (validM) db.methods = d.methods.map(m => ({ nome: m.nome, colore: m.colore, bordo: m.bordo }));
+    if (validM) db.methods = d.methods.map(m => ({ nome: m.nome, colore: m.colore, bordo: m.bordo, ...feeFields(m) }));
     if (d.oldMethods && typeof d.oldMethods === 'object') db.oldMethods = d.oldMethods;
     db.lastBackup = Date.now();
     save();
@@ -1582,9 +1594,11 @@ function renderMethodsSettings() {
       <button class="icon-btn" data-act="up" ${i === 0 ? 'disabled' : ''} aria-label="Su">${upSvg}</button>
       <button class="icon-btn" data-act="down" ${i === list.length - 1 ? 'disabled' : ''} aria-label="Giù">${downSvg}</button>
       <button class="icon-btn del" data-act="del" aria-label="Togli">${trashSvg}</button>
+      <button class="fee-btn ${feeLabel(m) ? 'has' : ''}" data-act="fee">Commissione: ${feeLabel(m) || 'nessuna'} ${penSvg}</button>
     </div>`).join('') + `
     <button class="secondary-btn add-btn" data-act="add">+ Aggiungi metodo</button>
-    <p class="muted small-text">Tocca il pallino per cambiare colore e il nome per rinominarlo. Se rinomini un metodo, anche i pagamenti già registrati prendono il nuovo nome. Se lo togli, i pagamenti già registrati restano nello storico.</p>`;
+    <p class="muted small-text">Tocca il pallino per cambiare colore e il nome per rinominarlo. Se rinomini un metodo, anche i pagamenti già registrati prendono il nuovo nome. Se lo togli, i pagamenti già registrati restano nello storico.</p>
+    <p class="muted small-text">La commissione si toglie dagli importi solo se attivi "Mostra al netto delle commissioni" in Impostazioni.</p>`;
 }
 
 $('methodsList').addEventListener('click', async e => {
@@ -1604,7 +1618,7 @@ $('methodsList').addEventListener('click', async e => {
     const m = list[i];
     const yes = await ask(`Togliere "${m.nome}"? I pagamenti già registrati con questo metodo restano nello storico.`, { ok: 'Togli', danger: true });
     if (!yes) return;
-    db.oldMethods[m.nome] = { colore: m.colore, bordo: m.bordo };
+    db.oldMethods[m.nome] = { colore: m.colore, bordo: m.bordo, ...feeFields(m) };   // i vecchi pagamenti tengono la commissione
     list.splice(i, 1);
     methodsChanged();
   } else if (act === 'add') {
@@ -1618,8 +1632,49 @@ $('methodsList').addEventListener('click', async e => {
     if (inp) { inp.focus(); inp.select(); }
   } else if (act === 'color') {
     openColorPicker(i);
+  } else if (act === 'fee') {
+    editFee(i);
   }
 });
+
+/* ----- Commissioni dei metodi ----- */
+const fmtPct = v => `${nf2.format(v / 100).replace(/,00$/, '').replace(/(,\d)0$/, '$1')}%`;   // 250 → "2,5%"
+// solo i campi commissione validi (per backup e metodi tolti); niente campi se la commissione è zero
+function feeFields(m) {
+  const o = {};
+  if (Number.isInteger(m.fee) && m.fee > 0 && m.fee <= 10000) o.fee = m.fee;
+  if (Number.isInteger(m.feeFix) && m.feeFix > 0 && m.feeFix <= MAX_CENTS) o.feeFix = m.feeFix;
+  return o;
+}
+function feeLabel(m) {
+  const parts = [];
+  if (m.fee) parts.push(fmtPct(m.fee));
+  if (m.feeFix) parts.push(`${fmtCents(m.feeFix)} € a corsa`);
+  return parts.join(' + ');
+}
+async function editFee(i) {
+  const m = metodi()[i];
+  if (!m) return;
+  const pick = await choose(`Commissione di ${m.nome}`, [
+    { label: `Percentuale${m.fee ? ': ' + fmtPct(m.fee) : ''}`, cls: 'primary-btn' },
+    { label: `Fissa per ogni pagamento${m.feeFix ? ': ' + fmtCents(m.feeFix) + ' €' : ''}` },
+  ]);
+  if (pick === null) return;
+  const key = pick === 0 ? 'fee' : 'feeFix';
+  let v = m[key] || 0;
+  openKeypad({
+    title: pick === 0 ? `Commissione ${m.nome} (%)` : `Commissione ${m.nome} a corsa`,
+    get: () => v,
+    max: pick === 0 ? 10000 : undefined,        // al massimo 100%
+    set: n => { v = n; },
+    fmt: pick === 0 ? (n => `${nf2.format(n / 100)} %`) : null,
+    onDone: () => {
+      if (v === (m[key] || 0)) return;
+      if (v) m[key] = v; else delete m[key];      // 0 = nessuna commissione
+      methodsChanged();
+    },
+  });
+}
 
 $('methodsList').addEventListener('change', e => {
   if (!e.target.classList.contains('name-input')) return;
