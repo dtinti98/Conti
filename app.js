@@ -1527,7 +1527,7 @@ function renderBackupInfo() {
     (lb ? `Ultimo backup: ${fmtDate(ymd(new Date(lb)))} (${days === 0 ? 'oggi' : days === 1 ? 'ieri' : days + ' giorni fa'}).` : 'Nessun backup ancora salvato.') +
     ' Il backup è un file che puoi salvare in "File" o iCloud Drive. Con "Ripristina" lo ricarichi, anche su un telefono nuovo.';
 }
-$('menuBtn').addEventListener('click', () => { renderBackupInfo(); openSheet($('menuSheet')); });
+$('menuBtn').addEventListener('click', () => { renderBackupInfo(); renderToggles(); openSheet($('menuSheet')); });
 $('backupBtn').addEventListener('click', async () => {
   const data = { app: 'AppConti', v: 1, exportedAt: new Date().toISOString(), payments: db.payments, fuel: db.fuel, shifts: db.shifts, notes: db.notes, goals: db.goals, workdays: db.workdays, methods: db.methods, oldMethods: db.oldMethods, settings: db.settings };
   const ok = await shareFile(`conti-backup-${todayKey()}.json`, JSON.stringify(data), 'application/json');
@@ -1598,7 +1598,7 @@ function renderMethodsSettings() {
     </div>`).join('') + `
     <button class="secondary-btn add-btn" data-act="add">+ Aggiungi metodo</button>
     <p class="muted small-text">Tocca il pallino per cambiare colore e il nome per rinominarlo. Se rinomini un metodo, anche i pagamenti già registrati prendono il nuovo nome. Se lo togli, i pagamenti già registrati restano nello storico.</p>
-    <p class="muted small-text">La commissione si toglie dagli importi solo se attivi "Mostra al netto delle commissioni" in Impostazioni.</p>`;
+    <p class="muted small-text">La commissione si toglie dagli importi solo se attivi "Mostra al netto delle commissioni" nel Menu.</p>`;
 }
 
 $('methodsList').addEventListener('click', async e => {
@@ -1924,13 +1924,13 @@ $('photoInput').addEventListener('change', async e => {
 });
 // Menu → Impostazioni: interruttori sì/no (data-setting = chiave in db.settings)
 function renderToggles() {
-  document.querySelectorAll('#prefsSheet [data-setting]').forEach(t => {
+  document.querySelectorAll('[data-setting]').forEach(t => {
     const on = setting(t.dataset.setting);
     t.classList.toggle('on', on);
     t.setAttribute('aria-checked', String(on));
   });
 }
-$('prefsSheet').addEventListener('click', e => {
+function onToggleClick(e) {
   const t = e.target.closest('[data-setting]');
   if (!t) return;
   const key = t.dataset.setting;
@@ -1939,7 +1939,9 @@ $('prefsSheet').addEventListener('click', e => {
   save();
   renderToggles();
   renderAll();
-});
+}
+$('prefsSheet').addEventListener('click', onToggleClick);
+$('menuSheet').addEventListener('click', onToggleClick);   // "Mostra al netto" è nel Menu
 $('openPrefs').addEventListener('click', () => {
   closeSheet($('menuSheet'));
   renderToggles();
