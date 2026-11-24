@@ -211,6 +211,8 @@ function ask(text, { ok = 'Conferma', danger = false, cancel = 'Annulla' } = {})
     okBtn.className = danger ? 'danger-btn' : 'primary-btn';
     noBtn.textContent = cancel;
     noBtn.hidden = cancel === null;
+    // scritte lunghe (es. "Ricordami tra 15 minuti"): tasti uno sopra l'altro, su una riga sola
+    okBtn.parentElement.classList.toggle('stack', ok.length > 12 || (cancel || '').length > 12);
     dlg.hidden = false;
     const done = v => {
       dlg.hidden = true;
