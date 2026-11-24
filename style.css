@@ -486,6 +486,8 @@ html { background: #000; }
 .dialog-box p { margin: 0 4px 18px; text-align: center; font-size: 17px; font-weight: 600; line-height: 1.35; }
 .dialog-box .secondary-btn { background: #2c2c2e; }
 .dialog-box .primary-btn, .dialog-box .danger-btn, .dialog-box .secondary-btn { min-height: 48px; }
+.dialog-box .edit-actions.stack { flex-direction: column-reverse; }
+.dialog-box .edit-actions.stack button { flex: none; width: 100%; padding: 0 16px; text-align: center; }
 @keyframes fade { from { opacity: 0; } }
 
 .export-preview {
