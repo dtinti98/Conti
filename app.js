@@ -388,7 +388,11 @@ function renderTop() {
   const fuel = db.fuel[viewDay] || 0;
   $('fuelVal').textContent = fuel ? fmtEuro(fuel) : '—';
   $('fuelBtn').classList.toggle('empty', !fuel);
-  $('totVal').textContent = fmtEuro(sum(paymentsOf(viewDay)));
+  const ps = paymentsOf(viewDay);
+  $('totVal').textContent = fmtEuro(sum(ps));
+  // con "Mostra al netto" il Tot è netto: sotto, piccolo, il lordo per fare il confronto
+  $('totGross').hidden = !netOn();
+  if (netOn()) $('totGross').textContent = `(lordo ${fmtEuro(ps.reduce((s, p) => s + p.cents, 0))})`;
   renderShiftBtn();
   renderPaceArrow();
 }
